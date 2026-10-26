@@ -1,0 +1,10 @@
+{
+  "name": "adventure-time-story",
+  "version": "3.0.0",
+  "description": "Adventure Time - Malam Permainan BMO yang Kacau (WebGL murni)",
+  "scripts": {
+    "test": "node tests/run.js",
+    "test:update": "node tests/run.js --update"
+  },
+  "devDependencies": { "playwright": "^1.45.0" }
+}

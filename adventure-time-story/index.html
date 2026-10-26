@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Adventure Time — Malam Permainan BMO yang Kacau</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="stage"></canvas>
+<div id="banner"><span id="bnum"></span><b id="bname"></b><i id="bsub"></i></div>
+<div id="subtitle"><span id="swho"></span><span id="stext"></span></div>
+<div id="bar">
+  <button id="bPlay" title="Putar / jeda (Spasi)">⏸</button>
+  <button id="bRestart" title="Ulang (R)">⏮</button>
+  <input id="seek" type="range" min="0" max="1000" value="0">
+  <span id="time">0:00</span>
+  <div id="chips"></div>
+  <button id="bSpeed" title="Kecepatan">1×</button>
+  <button id="bCam" title="Kamera bebas (C): seret = putar, roda = zoom">🎥</button>
+  <button id="bQual" title="Kualitas grafis (Q)">HD</button>
+  <button id="bFull" title="Layar penuh (F)">⛶</button>
+  <button id="bRec" title="Rekam video (.webm) dari awal sampai akhir">⏺</button>
+  <button id="bSnd" title="Suara (M)">🔊</button>
+</div>
+<div id="title"><div><small>ADVENTURE TIME</small><h2>Malam Permainan BMO<br>yang Kacau</h2></div></div>
+<div id="endcard"><div class="card"><h1>TAMAT</h1><p>Finn · Jake · BMO<br>Sebuah cerita Adventure Time dengan WebGL murni</p><button id="again">↻ Putar lagi</button></div></div>
+<div id="vig"></div>
+<div id="toast"></div>
+<div id="start">
+  <div class="card">
+    <h1>Malam Permainan BMO<br>yang Kacau</h1>
+    <p>Sebuah cerita Adventure Time — Finn, Jake &amp; BMO<br>WebGL murni · ±2,5 menit · 6 babak</p>
+    <button id="go" disabled>Memuat…</button>
+    <small>Spasi: jeda · R: ulang · C: kamera bebas · M: suara · Q: kualitas · F: layar penuh · ← →: lompat 5 dtk</small>
+  </div>
+</div>
+<script src="js/jake.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/jake-actor.js"></script>
+<script src="js/finn.js"></script>
+<script src="js/bmo.js"></script>
+<script src="js/props.js"></script>
+<script src="js/decor.js"></script>
+<script src="js/story-data.js"></script>
+<script src="js/story.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

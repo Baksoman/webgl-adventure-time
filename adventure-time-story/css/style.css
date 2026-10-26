@@ -1,0 +1,44 @@
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0b0a14;overflow:hidden;font-family:"Trebuchet MS","Segoe UI",sans-serif;color:#fff}
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block}
+#banner{position:fixed;top:16px;left:50%;transform:translate(-50%,-30px);opacity:0;transition:.5s;background:rgba(20,16,40,.82);border:3px solid #ffca28;border-radius:14px;padding:8px 20px;display:flex;gap:12px;align-items:baseline;pointer-events:none;white-space:nowrap}
+#banner.show{opacity:1;transform:translate(-50%,0)}
+#bnum{background:#ffca28;color:#222;border-radius:50%;width:28px;height:28px;display:inline-grid;place-items:center;font-weight:900;align-self:center}
+#bname{font-size:20px}#bsub{opacity:.75;font-size:14px}
+#subtitle{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);max-width:min(860px,92vw);background:rgba(10,8,24,.78);border-radius:12px;padding:10px 20px;font-size:clamp(15px,2.2vw,22px);text-align:center;opacity:0;transition:opacity .25s;pointer-events:none}
+#subtitle.show{opacity:1}
+#swho{font-weight:900;margin-right:8px}
+#bar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);width:min(980px,96vw);display:flex;gap:8px;align-items:center;background:rgba(20,16,40,.85);border-radius:14px;padding:8px 12px}
+#bar button{background:#2a2450;color:#fff;border:0;border-radius:8px;min-width:36px;height:34px;font-size:16px;cursor:pointer}
+#bar button:hover{background:#4a3f8a}
+#seek{flex:1;min-width:60px;accent-color:#ffca28}
+#time{font-variant-numeric:tabular-nums;font-size:13px;min-width:34px}
+#chips{display:flex;gap:4px}
+#chips button{min-width:28px;height:28px;font-size:13px;font-weight:700}
+#chips button.on{background:#ffca28;color:#222}
+#start{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#2c2a5a,#0b0a14);z-index:5}
+#start.hide{display:none}
+.card{text-align:center;padding:30px 36px;border:4px solid #ffca28;border-radius:22px;background:rgba(20,16,40,.7);max-width:92vw}
+.card h1{margin:0 0 12px;font-size:clamp(26px,5vw,44px);color:#ffca28;text-shadow:3px 3px 0 #000}
+.card p{opacity:.85;line-height:1.5}
+#go{font-size:22px;padding:12px 34px;border:0;border-radius:14px;background:#69f0ae;color:#12301f;font-weight:900;cursor:pointer;margin:10px 0 14px}
+#go:hover{background:#9bffcb}
+.card small{display:block;opacity:.6}
+@media(max-width:640px){#chips{display:none}}
+
+.emote{position:fixed;left:0;top:0;pointer-events:none;font-weight:900;font-size:34px;line-height:1;padding:6px 12px;border-radius:50%;background:#fff;color:#222;border:3px solid #222;box-shadow:0 3px 0 rgba(0,0,0,.35);z-index:3;display:none;white-space:nowrap}
+.emote[data-w=j]{background:#ffe066}.emote[data-w=f]{background:#8fd3ff}.emote[data-w=b]{background:#9cf5c8}.emote[data-w=t]{background:#ff9d9d}
+
+#stage{touch-action:none;filter:saturate(1.12) contrast(1.05)}
+#vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,transparent 55%,rgba(8,4,20,.55) 100%);z-index:1}
+#title{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;opacity:0;transition:opacity 1s;z-index:2;text-align:center;background:linear-gradient(rgba(8,4,20,.55),rgba(8,4,20,.15))}
+#title.show{opacity:1}
+#title small{letter-spacing:.5em;color:#69f0ae;font-weight:700}
+#title h2{margin:8px 0 0;font-size:clamp(28px,6vw,64px);color:#ffca28;text-shadow:4px 4px 0 #000,0 0 30px rgba(255,202,40,.4)}
+#endcard{position:fixed;inset:0;display:none;place-items:center;background:rgba(8,4,20,.65);z-index:4;animation:fadein 1.2s}
+#endcard.show{display:grid}
+#again{font-size:20px;padding:10px 28px;border:0;border-radius:12px;background:#ffca28;color:#222;font-weight:900;cursor:pointer;margin-top:8px}
+#bRec.rec{background:#d32f2f;animation:pulse 1s infinite}
+#toast{position:fixed;top:64px;left:50%;transform:translateX(-50%);background:rgba(20,16,40,.9);padding:8px 16px;border-radius:10px;z-index:6;opacity:0;transition:opacity .4s;pointer-events:none}
+#toast.show{opacity:1}
+@keyframes fadein{from{opacity:0}to{opacity:1}}@keyframes pulse{50%{opacity:.55}}
