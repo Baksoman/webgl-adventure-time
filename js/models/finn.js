@@ -106,16 +106,18 @@
     sleeve: translate(0, -0.085, 0),
     upperArm: translate(0, -0.335, 0),
     forearm: translate(0, -0.2, 0),
-    hand: translate(0, -0.42, 0),
+    // Rotasi Y ±90° agar telapak menghadap ke badan (posisi tetap/diam untuk jalan maupun lari)
+    hand: forBothSides((side) => multiply(translate(0, -0.42, 0), rotateY(side * Math.PI / 2))),
     // Pangkal jari = titik putar jari
     fingerBase: FINGER_OFFSETS_X.map((offsetX) => translate(offsetX, -0.05, 0)),
     fingerShape: FINGER_LENGTH_SCALES.map((lengthScale) =>
       multiply(scale(1, lengthScale, 1), translate(0, -0.03, 0)),
     ),
+    // Posisi jempol yang sesuai di sisi telapak
     thumb: forBothSides((side) =>
       multiply(
-        translate(side * 0.045, 0.01, 0.01),
-        multiply(rotateZ(side * 0.8), translate(0, -0.025, 0)),
+        translate(-side * 0.045, 0.01, 0.01),
+        multiply(rotateZ(-side * 0.8), translate(0, -0.025, 0)),
       ),
     ),
 
@@ -618,7 +620,7 @@
           multiply(forearmFrame, LOCAL_TRANSFORMS.forearm),
         );
 
-        const handFrame = multiply(forearmFrame, LOCAL_TRANSFORMS.hand);
+        const handFrame = multiply(forearmFrame, LOCAL_TRANSFORMS.hand[sideIndex]);
         addPart(parts.palm, handFrame);
         LOCAL_TRANSFORMS.fingerBase.forEach((fingerBase, fingerIndex) => {
           addPart(
