@@ -67,7 +67,7 @@
     lengthUpper: 1,
     lengthForearm: 1,
     shoulderX: 0.75,
-    shoulderY: BODY.baseY + 0.6 * BODY.height,
+    shoulderY: BODY.baseY + 0.45 * BODY.height,
   };
 
   const LEG = {
@@ -79,7 +79,7 @@
     shinLength: 0.85,
   };
 
-  const ARM_SCALE = 2.8;
+  const ARM_SCALE = 2.24; // dipendekkan 20% secara menyeluruh (sebelumnya 2.8)
 
   const FINGER_OFFSETS_X = [-0.035, 0, 0.035];
   const FINGER_LENGTH_SCALES = [1, 1.1, 1.1];
@@ -119,19 +119,21 @@
       scale(0.14, 0.14, 0.52),
     ),
 
-    upperArm: translate(0, -0.335, 0),
+    upperArm: translate(0.0, -0.26, 0),
     forearm: translate(0, -0.2, 0),
-    hand: translate(0, -0.42, 0),
+    // Rotasi Y ±90° agar telapak menghadap ke badan (posisi tetap/diam untuk jalan maupun lari)
+    hand: forBothSides((side) => multiply(translate(0, -0.42, 0), rotateY(side * Math.PI / 2))),
 
     // Pangkal jari = titik putar jari
     fingerBase: FINGER_OFFSETS_X.map((offsetX) => translate(offsetX, -0.05, 0)),
     fingerShape: FINGER_LENGTH_SCALES.map((lengthScale) =>
       multiply(scale(1, lengthScale, 1), translate(0, -0.03, 0)),
     ),
+    // Posisi jempol yang sesuai di sisi telapak
     thumb: forBothSides((side) =>
       multiply(
-        translate(side * 0.045, 0.01, 0.01),
-        multiply(rotateZ(side * 0.8), translate(0, -0.025, 0)),
+        translate(-side * 0.045, 0.01, 0.01),
+        multiply(rotateZ(-side * 0.8), translate(0, -0.025, 0)),
       ),
     ),
   };
@@ -370,7 +372,7 @@
         0.5,
       ),
       upperArm: createPart(
-        superellipsoid(0.05, 0.17, 0.05, 0.2, 1, 16, 8),
+        superellipsoid(0.05, 0.24, 0.05, 0.2, 1, 16, 8),
         COLORS.body,
         0,
         0.5,
@@ -511,7 +513,7 @@
 
       BOTH_SIDES.forEach((side, sideIndex) => {
         const shoulderPosition = [
-          (side * ARM.shoulderX) / ARM_SCALE,
+          (side * 1.7 * ARM.shoulderX) / ARM_SCALE,
           ARM.shoulderY / ARM_SCALE,
           0,
         ];
@@ -526,7 +528,7 @@
         } else if (armTarget && armTarget.l) {
           handTarget = armTarget.l.map((coord) => coord / ARM_SCALE);
         } else {
-          handTarget = [shoulderPosition[0] + side, shoulderPosition[1], 0]; // T-pose
+          handTarget = [shoulderPosition[0] + side, shoulderPosition[1], 0]; 
         }
 
         const elbowPole = (armTarget && armTarget.pole) || [0, 0, -1];
@@ -553,7 +555,7 @@
         );
 
         // Tangan dan jari
-        const handFrame = multiply(forearmFrame, LOCAL_TRANSFORMS.hand);
+        const handFrame = multiply(forearmFrame, LOCAL_TRANSFORMS.hand[sideIndex]);
         addPart(parts.palm, handFrame);
 
         LOCAL_TRANSFORMS.fingerBase.forEach((fingerBase, fingerIndex) => {
