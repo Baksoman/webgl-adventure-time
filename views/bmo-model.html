@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BMO - 3D Model Showcase</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #0f1016;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #e6e8f0;
+  }
+  #stage {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+  }
+  #stage:active {
+    cursor: grabbing;
+  }
+
+  .ui-container {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    z-index: 10;
+    max-width: 95vw;
+  }
+
+  .ui-panel {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(20, 22, 32, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    padding: 8px 14px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  }
+
+  .ui-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ui-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #9aa2ba;
+    margin-right: 4px;
+  }
+
+  .divider {
+    width: 1px;
+    height: 22px;
+    background: rgba(255, 255, 255, 0.14);
+    margin: 0 4px;
+  }
+
+  button, .nav-btn {
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: #f0f2fa;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 7px 13px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  button:hover, .nav-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.35);
+    transform: translateY(-1px);
+  }
+
+  button:active, .nav-btn:active {
+    transform: translateY(0);
+  }
+
+  button.active, .nav-btn.active {
+    background: #ffb703;
+    color: #1a1500;
+    border-color: #ffd166;
+    box-shadow: 0 0 12px rgba(255, 183, 3, 0.45);
+  }
+
+  .rot-slider {
+    width: 110px;
+    accent-color: #ffb703;
+    cursor: pointer;
+  }
+
+  .hint-panel {
+    font-size: 11px;
+    color: #8c93a8;
+    background: rgba(15, 17, 25, 0.7);
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    pointer-events: none;
+  }
+
+  @media (max-width: 680px) {
+    .ui-panel {
+      padding: 6px 10px;
+      gap: 6px;
+    }
+    button, .nav-btn {
+      padding: 5px 9px;
+      font-size: 11px;
+    }
+    .rot-slider {
+      width: 80px;
+    }
+    .divider {
+      display: none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="stage"></canvas>
+
+<div class="ui-container">
+  <div class="ui-panel">
+    <div class="ui-group">
+      <span class="ui-label">Model:</span>
+      <a href="model.html" class="nav-btn">Semua</a>
+      <a href="finn-model.html" class="nav-btn">Finn</a>
+      <a href="jake-model.html" class="nav-btn">Jake</a>
+      <a href="bmo-model.html" class="nav-btn active">BMO</a>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="ui-group">
+      <span class="ui-label">Putar:</span>
+      <button id="btnRotLeft" title="Putar Kiri" onclick="adjustYaw(-0.25)">⟲</button>
+      <input id="rotSlider" class="rot-slider" type="range" min="0" max="360" value="0" oninput="onSliderYaw(this.value)">
+      <button id="btnRotRight" title="Putar Kanan" onclick="adjustYaw(0.25)">⟳</button>
+      <button id="btnAutoRot" onclick="toggleAutoRotate()">Auto</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Animation Mode Controls -->
+    <div class="ui-group">
+      <span class="ui-label">Gerak:</span>
+      <button id="btnAnimIdle" class="active" onclick="setAnimationMode('idle')">T-Pose</button>
+      <button id="btnAnimWalk" onclick="setAnimationMode('walk')">Jalan</button>
+      <button id="btnAnimRun" onclick="setAnimationMode('run')">Lari</button>
+    </div>
+  </div>
+
+  <div class="hint-panel">
+    🖱️ Drag mouse untuk orbit kamera • Scroll untuk zoom • Klik kanan drag untuk pan • Shift + drag untuk putar karakter
+  </div>
+</div>
+
+<!-- Math Modules -->
+<script src="../js/math/vector3.js"></script>
+<script src="../js/math/matrix4.js"></script>
+
+<!-- WebGL & Engine Core -->
+<script src="../js/gfx/webgl.js"></script>
+<script src="../js/gfx/renderer.js"></script>
+<script src="../js/gfx/axis-gizmo.js"></script>
+
+<!-- Centralized Geometry & Primitives -->
+<script src="../js/geom/parametric.js"></script>
+<script src="../js/geom/quadrics.js"></script>
+<script src="../js/geom/curves.js"></script>
+<script src="../js/gfx/mesh-cache.js"></script>
+
+<!-- Kinematics -->
+<script src="../js/anim/inverse-kinematics.js"></script>
+
+<!-- BMO Character Model -->
+<script src="../js/models/bmo.js"></script>
+
+<!-- BMO Locomotion Animation Module -->
+<script src="../js/animations/bmo-animations.js"></script>
+
+<script>
+(function() {
+  'use strict';
+  const JK = window.JK, AT = window.AT;
+  const { Mat4, V3, T, S, mul } = JK;
+
+  const bmo = new AT.BMOActor();
+  const gizmo = new AT.AxisGizmo();
+
+  let charYaw = 0;
+  let autoRotate = false;
+
+  // Animation State
+  let currentAnimationMode = 'idle';
+  let animationTimeSeconds = 0;
+
+  window.setAnimationMode = function(mode) {
+    currentAnimationMode = mode;
+    ['idle', 'walk', 'run'].forEach((animName) => {
+      const buttonId = 'btnAnim' + animName.charAt(0).toUpperCase() + animName.slice(1);
+      const buttonElement = document.getElementById(buttonId);
+      if (buttonElement) {
+        buttonElement.classList.toggle('active', animName === mode);
+      }
+    });
+  };
+
+  // Camera State centered on BMO
+  const camState = {
+    yaw: 0.0,
+    pitch: 0.16,
+    dist: 4.5,
+    target: [0.0, 1.05, 0.0],
+    fov: 45
+  };
+
+  window.adjustYaw = function(delta) {
+    charYaw += delta;
+    syncSlider();
+  };
+
+  window.onSliderYaw = function(deg) {
+    charYaw = deg * (Math.PI / 180);
+  };
+
+  function syncSlider() {
+    const deg = (((charYaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) * (180 / Math.PI);
+    document.getElementById('rotSlider').value = Math.round(deg);
+  }
+
+  window.toggleAutoRotate = function() {
+    autoRotate = !autoRotate;
+    const btn = document.getElementById('btnAutoRot');
+    if (btn) btn.classList.toggle('active', autoRotate);
+  };
+
+  // Camera & Mouse controls
+  const canvas = JK.canvas;
+  let isDragging = false;
+  let dragButton = 0;
+  let isShiftDrag = false;
+  let lastMouseX = 0;
+  let lastMouseY = 0;
+
+  canvas.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    dragButton = e.button;
+    isShiftDrag = e.shiftKey;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+    e.preventDefault();
+  });
+
+  window.addEventListener('mouseup', () => { isDragging = false; });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - lastMouseX;
+    const dy = e.clientY - lastMouseY;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+
+    if (isShiftDrag) {
+      adjustYaw(dx * 0.015);
+      return;
+    }
+
+    if (dragButton === 0) {
+      camState.yaw -= dx * 0.008;
+      camState.pitch = Math.max(-1.56, Math.min(1.56, camState.pitch + dy * 0.008));
+    } else if (dragButton === 2) {
+      const cp = Math.cos(camState.pitch), sp = Math.sin(camState.pitch);
+      const cy = Math.cos(camState.yaw),   sy = Math.sin(camState.yaw);
+      const right = [cy, 0, -sy];
+      const up = [-sy * sp, cp, -cy * sp];
+      const panSpeed = 0.003 * camState.dist;
+      camState.target[0] -= (right[0] * dx + up[0] * dy) * panSpeed;
+      camState.target[1] += up[1] * dy * panSpeed;
+      camState.target[2] -= (right[2] * dx + up[2] * dy) * panSpeed;
+    }
+  });
+
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  window.addEventListener('wheel', (e) => {
+    const zoomFactor = Math.exp(e.deltaY * 0.001);
+    camState.dist = Math.max(0.1, camState.dist * zoomFactor);
+    e.preventDefault();
+  }, { passive: false });
+
+  // Touch Support
+  let touchDist0 = null;
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      isDragging = true;
+      dragButton = 0;
+      isShiftDrag = false;
+      lastMouseX = e.touches[0].clientX;
+      lastMouseY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      touchDist0 = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1 && isDragging) {
+      const dx = e.touches[0].clientX - lastMouseX;
+      const dy = e.touches[0].clientY - lastMouseY;
+      lastMouseX = e.touches[0].clientX;
+      lastMouseY = e.touches[0].clientY;
+      camState.yaw -= dx * 0.008;
+      camState.pitch = Math.max(-1.56, Math.min(1.56, camState.pitch + dy * 0.008));
+    } else if (e.touches.length === 2 && touchDist0) {
+      const d = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const factor = touchDist0 / (d || 1);
+      camState.dist = Math.max(0.1, camState.dist * factor);
+      touchDist0 = d;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchend', () => {
+    isDragging = false;
+    touchDist0 = null;
+  });
+
+  // Animation Loop
+  let lastTime = performance.now();
+
+  function renderLoop(now) {
+    requestAnimationFrame(renderLoop);
+    const dt = Math.min(0.05, (now - lastTime) / 1000 || 0);
+    lastTime = now;
+
+    if (autoRotate) {
+      adjustYaw(dt * 0.8);
+    }
+
+    if (currentAnimationMode !== 'idle') {
+      animationTimeSeconds += dt;
+    }
+
+    const list = [];
+
+    // BMO (T-Pose, Walk, or Run via Centralized Locomotion)
+    const bmoPose = AT.animations.getCharacterLocomotionPose(
+      'bmo',
+      currentAnimationMode,
+      animationTimeSeconds,
+      [0, 0, 0],
+      charYaw,
+      0.045
+    );
+    bmo.frame(dt, bmoPose, list);
+
+    const cp = Math.cos(camState.pitch);
+    const sp = Math.sin(camState.pitch);
+    const cy = Math.cos(camState.yaw);
+    const sy = Math.sin(camState.yaw);
+
+    const eye = [
+      camState.target[0] + camState.dist * cp * Math.sin(camState.yaw),
+      camState.target[1] + camState.dist * sp,
+      camState.target[2] + camState.dist * cp * Math.cos(camState.yaw)
+    ];
+
+    AT.render(list, { eye, target: camState.target, fov: camState.fov }, {
+      outline: true,
+      toon: true,
+      bg: [0.08, 0.09, 0.13],
+      lightDir: [0.5, 1.0, 0.8]
+    });
+
+    gizmo.update(camState.yaw, camState.pitch);
+  }
+
+  requestAnimationFrame(renderLoop);
+})();
+</script>
+
+</body>
+</html>
