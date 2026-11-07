@@ -57,7 +57,7 @@
 
   const ARM = {
     shoulderX: 10,
-    shoulderY: 17.5,
+    shoulderY: 7,
     upperLength: 5.5,
     forearmLength: 5.7,
   };
@@ -82,6 +82,31 @@
     tubeRadius: 0.14,
   };
 
+  // Teks "BMO" di sisi kanan badan BMO (sisi -X): dibaca dari atas ke bawah,
+  const SIDE_TEXT = {
+    letters: "BMO",
+    surfaceX: -BODY.width / 2,
+    decalOffset: 0.06,
+    centerY: 12,
+    centerZ: -0.5,
+    quadWidth: 15,
+    quadHeight: 7.5,
+    textureWidth: 1024,
+    textureHeight: 512,
+    fontSizePixels: 450,
+  };
+
+  // Posisi lubang speaker di sisi kanan badan (koordinat Y dan Z), tersusun selang-seling
+  const SPEAKER_HOLE_POSITIONS = [
+    [27, -1.8],
+    [27, 2],
+    [24.5, -3.5],
+    [24.5, 0.1],
+    [24.5, 3.6],
+    [22.2, -1.8],
+    [22.2, 2],
+  ];
+
   // Skala tangan berartikulasi (jari & jempol) seperti Jake
   const HAND_SCALE = 18;
   const FINGER_OFFSETS_X = [-0.035, 0, 0.035];
@@ -90,6 +115,7 @@
   let faceCanvas = null;
   let faceContext = null;
   let faceTexture = null;
+  let sideTextTexture = null;
 
   // Menginisialisasi kanvas tekstur wajah 2D untuk layar BMO
   function initFaceTexture(gl) {
@@ -170,6 +196,54 @@
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
   }
 
+  // Menginisialisasi tekstur teks "BMO" untuk sisi badan: huruf gelap pada latar transparan
+  function initSideTextTexture(gl) {
+    if (sideTextTexture) return sideTextTexture;
+    const sideTextCanvas = document.createElement("canvas");
+    sideTextCanvas.width = SIDE_TEXT.textureWidth;
+    sideTextCanvas.height = SIDE_TEXT.textureHeight;
+    const sideTextContext = sideTextCanvas.getContext("2d");
+
+    sideTextContext.fillStyle = "#122b29";
+    sideTextContext.font = `bold ${SIDE_TEXT.fontSizePixels}px sans-serif`;
+    sideTextContext.textAlign = "center";
+    sideTextContext.textBaseline = "middle";
+
+    // Setiap huruf diletakkan di tengah selnya agar jarak antarhuruf rata
+    const letterCellWidth = SIDE_TEXT.textureWidth / SIDE_TEXT.letters.length;
+    Array.from(SIDE_TEXT.letters).forEach((letter, letterIndex) => {
+      sideTextContext.fillText(
+        letter,
+        letterCellWidth * (letterIndex + 0.5),
+        SIDE_TEXT.textureHeight / 2,
+      );
+    });
+
+    sideTextTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, sideTextTexture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      sideTextCanvas,
+    );
+    // Ukuran tekstur pangkat dua sehingga mipmap boleh dipakai agar teks tidak berkedip saat jauh
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(
+      gl.TEXTURE_2D,
+      gl.TEXTURE_MIN_FILTER,
+      gl.LINEAR_MIPMAP_LINEAR,
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    return sideTextTexture;
+  }
+
   // Membuat poligon lingkaran 2D untuk tombol silindris
   function createCirclePolygon(radius, vertexCount) {
     return Array.from({ length: vertexCount }, (_, vertexIndex) => [
@@ -201,7 +275,6 @@
   // Transformasi lokal tetap, dihitung sekali saat modul dimuat
   const LOCAL_TRANSFORMS = {
     ground: translate(0, GROUND_ELEVATION_Y, 0),
-
     body: translate(0, 15, 0),
     bezel: translate(0, 21.25, FRONT_FACE_Z),
     screen: translate(0, 21.25, FRONT_FACE_Z + 0.06),
@@ -221,8 +294,33 @@
       multiply(translate(portX, 3, FRONT_FACE_Z + 0.18), rotateZ(Math.PI / 2)),
     ),
 
-    vents: [0, 1, 2, 3, 4].map((ventIndex) =>
-      translate(10, 20 - ventIndex * 2.1, 0),
+    // Dekal teks: sumbu X kuad menjadi arah baca (-Y badan), sumbu Y kuad menjadi arah atas huruf (+Z badan),
+    sideText: [LEFT, RIGHT].map((side) => [
+      0,
+      -1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      side * -1,
+      0,
+      0,
+      0,
+      side === LEFT
+        ? SIDE_TEXT.surfaceX - SIDE_TEXT.decalOffset
+        : -SIDE_TEXT.surfaceX + SIDE_TEXT.decalOffset,
+      SIDE_TEXT.centerY,
+      SIDE_TEXT.centerZ,
+      1,
+    ]),
+
+    speakerHoles: [SIDE_TEXT.surfaceX, -SIDE_TEXT.surfaceX].flatMap(
+      (surfaceX) =>
+        SPEAKER_HOLE_POSITIONS.map(([holeY, holeZ]) =>
+          translate(surfaceX, holeY, holeZ),
+        ),
     ),
 
     shoulderSocket: forBothSides((side) =>
@@ -263,6 +361,7 @@
   function initMeshes(gl) {
     if (sharedMeshes) return sharedMeshes;
     initFaceTexture(gl);
+    initSideTextTexture(gl);
 
     const superellipsoid = (
       radiusX,
@@ -380,9 +479,6 @@
     const greenButtonMesh = MeshCache.get("bmo_grn_btn", () =>
       quadrics.prismMesh(gl, createCirclePolygon(0.6, 28), 0.6, true),
     );
-    const ventMesh = MeshCache.get("bmo_vent", () =>
-      quadrics.roundedBoxMesh(gl, 0.5, 0.7, 6, 0.2, 3),
-    );
     const darkBlueButtonMesh = MeshCache.get("bmo_dark_blue_btn", () =>
       quadrics.ellipticParaboloidMesh(gl, 0.8, 0.8, 0.5, 24, 10),
     );
@@ -396,6 +492,21 @@
         capLen: SMILE.tubeRadius,
       }),
     );
+    const sideTextQuadMesh = MeshCache.get("bmo_side_text", () =>
+      createQuadMesh(gl, SIDE_TEXT.quadWidth, SIDE_TEXT.quadHeight),
+    );
+
+    const sideTextPart = {
+      mesh: sideTextQuadMesh,
+      decal: true,
+      size: [SIDE_TEXT.quadWidth, SIDE_TEXT.quadHeight],
+      tex: () => sideTextTexture,
+      ow: 0,
+      alpha: 1,
+      unlit: false,
+      color: [1, 1, 1],
+      spec: 0,
+    };
 
     sharedMeshes = {
       body: createPart(bodyMesh, COLORS.body, 0.2, 0.55),
@@ -425,7 +536,15 @@
       ),
       redButton: createPart(redButtonMesh, COLORS.buttonRed, 0.6, 0.3),
       greenButton: createPart(greenButtonMesh, COLORS.buttonGreen, 0.6, 0.3),
-      vent: createPart(ventMesh, COLORS.dark, 0, 0.2),
+      sideText: sideTextPart,
+
+      // Lubang speaker berupa ellipsoid pipih gelap
+      speakerHole: createPart(
+        ellipsoid(0.15, 0.4, 0.4, 16, 10),
+        COLORS.dark,
+        0,
+        0.2,
+      ),
 
       // Objek lengan dan tangan seperti Jake (superellipsoid + 3 jari + jempol)
       shoulderJoint: createPart(
@@ -594,9 +713,12 @@
         addPart(parts.lowerPort, multiply(placement, portTransform));
       });
 
-      // Ventilasi samping badan
-      LOCAL_TRANSFORMS.vents.forEach((ventTransform) => {
-        addPart(parts.vent, multiply(placement, ventTransform));
+      // Lubang speaker dan teks BMO di sisi kanan badan
+      LOCAL_TRANSFORMS.speakerHoles.forEach((holeTransform) => {
+        addPart(parts.speakerHole, multiply(placement, holeTransform));
+      });
+      LOCAL_TRANSFORMS.sideText.forEach((sideTextTransform) => {
+        addPart(parts.sideText, multiply(placement, sideTextTransform));
       });
 
       // Lengan dan tangan (artikulasi persis seperti Jake: bahu, lengan atas, siku, lengan bawah, telapak, 3 jari, jempol)

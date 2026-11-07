@@ -12,8 +12,9 @@
   const Vector3 = globalJK.Vector3 || globalJK.V3;
   const globalAT = (window.AT = window.AT || {});
 
-  const DEFAULT_SHADE_COLOR =
-    (globalJK.cfg && globalJK.cfg.SHADE_WARM) || [0.66, 0.54, 0.58];
+  const DEFAULT_SHADE_COLOR = (globalJK.cfg && globalJK.cfg.SHADE_WARM) || [
+    0.66, 0.54, 0.58,
+  ];
 
   // Membuat objek deskriptor bagian/part model untuk dimasukkan ke antrean render.
   function createRenderItem(
@@ -154,6 +155,54 @@
     );
   });
 
+  /* ---------------- PROGRAM SHADER DEKAL TEKS (TEKSTUR 2D BER-ALPHA TANPA EFEK CRT) ---------------- */
+
+  const decalProgram = glContext.createProgram();
+  glContext.attachShader(
+    decalProgram,
+    compileScreenShader(
+      glContext.VERTEX_SHADER,
+      `
+      attribute vec3 aPosition;
+      attribute vec3 aNormal;
+      uniform mat4 uModelMatrix, uViewMatrix, uProjectionMatrix;
+      uniform vec2 uSize;
+      varying vec2 vUV;
+      void main() {
+        vUV = aPosition.xy / uSize + 0.5;
+        gl_Position = uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aPosition, 1.0);
+      }
+      `,
+    ),
+  );
+  glContext.attachShader(
+    decalProgram,
+    compileScreenShader(
+      glContext.FRAGMENT_SHADER,
+      `
+      precision mediump float;
+      varying vec2 vUV;
+      uniform sampler2D uTex;
+      void main() {
+        gl_FragColor = texture2D(uTex, vUV);
+      }
+      `,
+    ),
+  );
+  glContext.bindAttribLocation(decalProgram, 0, "aPosition");
+  glContext.bindAttribLocation(decalProgram, 1, "aNormal");
+  glContext.linkProgram(decalProgram);
+
+  const decalUniformLocations = {};
+  ["uModelMatrix", "uViewMatrix", "uProjectionMatrix", "uSize", "uTex"].forEach(
+    (uniformName) => {
+      decalUniformLocations[uniformName] = glContext.getUniformLocation(
+        decalProgram,
+        uniformName,
+      );
+    },
+  );
+
   const mainShaderProgram = glContext.getParameter(glContext.CURRENT_PROGRAM);
 
   let currentViewMatrix = null;
@@ -201,6 +250,49 @@
     glContext.useProgram(mainShaderProgram);
   }
 
+  // Merender dekal teks 2D (tekstur ber-alpha) di permukaan model tanpa pencahayaan dan efek CRT.
+  function drawDecal(renderItem, modelMatrix) {
+    glContext.useProgram(decalProgram);
+    glContext.uniformMatrix4fv(
+      decalUniformLocations.uModelMatrix,
+      false,
+      modelMatrix,
+    );
+    glContext.uniformMatrix4fv(
+      decalUniformLocations.uViewMatrix,
+      false,
+      currentViewMatrix,
+    );
+    glContext.uniformMatrix4fv(
+      decalUniformLocations.uProjectionMatrix,
+      false,
+      currentProjectionMatrix,
+    );
+    glContext.uniform2fv(decalUniformLocations.uSize, renderItem.size);
+    glContext.activeTexture(glContext.TEXTURE0);
+    glContext.bindTexture(glContext.TEXTURE_2D, renderItem.tex());
+    glContext.uniform1i(decalUniformLocations.uTex, 0);
+    glContext.enable(glContext.BLEND);
+    glContext.blendFunc(glContext.SRC_ALPHA, glContext.ONE_MINUS_SRC_ALPHA);
+    glContext.depthMask(false);
+    glContext.disable(glContext.CULL_FACE);
+    glContext.bindBuffer(glContext.ARRAY_BUFFER, renderItem.mesh.pBuf);
+    glContext.vertexAttribPointer(0, 3, glContext.FLOAT, false, 0, 0);
+    glContext.bindBuffer(glContext.ARRAY_BUFFER, renderItem.mesh.nBuf);
+    glContext.vertexAttribPointer(1, 3, glContext.FLOAT, false, 0, 0);
+    glContext.bindBuffer(glContext.ELEMENT_ARRAY_BUFFER, renderItem.mesh.iBuf);
+    glContext.drawElements(
+      glContext.TRIANGLES,
+      renderItem.mesh.count,
+      glContext.UNSIGNED_SHORT,
+      0,
+    );
+    glContext.depthMask(true);
+    glContext.disable(glContext.BLEND);
+    glContext.enable(glContext.CULL_FACE);
+    glContext.useProgram(mainShaderProgram);
+  }
+
   // Merender satu item mesh dengan material toon, rim lighting, atau garis luar (outline).
   function drawRenderItem(
     renderItem,
@@ -212,6 +304,13 @@
     if (renderItem.screen) {
       if (!isOutlinePass) {
         drawScreen(renderItem, modelMatrix);
+      }
+      return;
+    }
+
+    if (renderItem.decal) {
+      if (!isOutlinePass) {
+        drawDecal(renderItem, modelMatrix);
       }
       return;
     }
@@ -288,7 +387,10 @@
     const canvas = globalJK.canvas;
     const devicePixelRatio =
       Math.min(window.devicePixelRatio || 1, 2) * (globalAT.quality || 1);
-    const targetWidth = Math.max(1, Math.round(canvas.clientWidth * devicePixelRatio));
+    const targetWidth = Math.max(
+      1,
+      Math.round(canvas.clientWidth * devicePixelRatio),
+    );
     const targetHeight = Math.max(
       1,
       Math.round(canvas.clientHeight * devicePixelRatio),
@@ -340,17 +442,21 @@
     glContext.useProgram(mainShaderProgram);
     // uLightDir dikirim dalam world space agar konsisten dengan vNormal (world-space)
     // dan vWorldPos / uEye yang juga dalam world space.
-    const worldLightDirection = (renderOptions && renderOptions.lightDir)
-      ? Vector3.normalize(renderOptions.lightDir)
-      : (renderOptions && renderOptions.lightDirView)
-        // lightDirView: konversi dari view space ke world space menggunakan inverse view (= transpose view)
-        ? (() => {
-            const v = Vector3.normalize(renderOptions.lightDirView);
-            return [0, 1, 2].map(
-              (i) => viewMatrix[i] * v[0] + viewMatrix[4 + i] * v[1] + viewMatrix[8 + i] * v[2],
-            );
-          })()
-        : Vector3.normalize([0.45, 0.9, 0.85]);
+    const worldLightDirection =
+      renderOptions && renderOptions.lightDir
+        ? Vector3.normalize(renderOptions.lightDir)
+        : renderOptions && renderOptions.lightDirView
+          ? // lightDirView: konversi dari view space ke world space menggunakan inverse view (= transpose view)
+            (() => {
+              const v = Vector3.normalize(renderOptions.lightDirView);
+              return [0, 1, 2].map(
+                (i) =>
+                  viewMatrix[i] * v[0] +
+                  viewMatrix[4 + i] * v[1] +
+                  viewMatrix[8 + i] * v[2],
+              );
+            })()
+          : Vector3.normalize([0.45, 0.9, 0.85]);
 
     glContext.uniformMatrix4fv(uniformLocations.uViewMatrix, false, viewMatrix);
     glContext.uniformMatrix4fv(
@@ -358,10 +464,7 @@
       false,
       projectionMatrix,
     );
-    glContext.uniform3fv(
-      uniformLocations.uLightDir,
-      worldLightDirection,
-    );
+    glContext.uniform3fv(uniformLocations.uLightDir, worldLightDirection);
     glContext.uniform3fv(uniformLocations.uEye, camera.eye);
     glContext.uniform1f(
       uniformLocations.uToon,
