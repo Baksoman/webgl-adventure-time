@@ -100,6 +100,38 @@
       ]);
     },
 
+    // Membuat matriks rotasi 4x4 mengelilingi sembarang sumbu (arbitrary axis) dengan sudut tertentu (radian).
+    rotationAxis: (axisVector, angleRadians) => {
+      const axisLength =
+        Math.hypot(axisVector[0], axisVector[1], axisVector[2]) || 1;
+      const normalizedX = axisVector[0] / axisLength;
+      const normalizedY = axisVector[1] / axisLength;
+      const normalizedZ = axisVector[2] / axisLength;
+
+      const cosine = Math.cos(angleRadians);
+      const sine = Math.sin(angleRadians);
+      const oneMinusCosine = 1 - cosine;
+
+      return new Float32Array([
+        cosine + normalizedX * normalizedX * oneMinusCosine,
+        normalizedY * normalizedX * oneMinusCosine + normalizedZ * sine,
+        normalizedZ * normalizedX * oneMinusCosine - normalizedY * sine,
+        0,
+
+        normalizedX * normalizedY * oneMinusCosine - normalizedZ * sine,
+        cosine + normalizedY * normalizedY * oneMinusCosine,
+        normalizedZ * normalizedY * oneMinusCosine + normalizedX * sine,
+        0,
+
+        normalizedX * normalizedZ * oneMinusCosine + normalizedY * sine,
+        normalizedY * normalizedZ * oneMinusCosine - normalizedX * sine,
+        cosine + normalizedZ * normalizedZ * oneMinusCosine,
+        0,
+
+        0, 0, 0, 1,
+      ]);
+    },
+
     // Membangun matriks 4x4 dari titik pusat asal (origin) dan tiga vektor basis ortogonal.
     fromBasis: (originPosition, axisX, axisY, axisZ) =>
       new Float32Array([
@@ -256,12 +288,14 @@
   // Alias kompatibilitas
   Matrix4.point = Matrix4.transformPoint;
   Matrix4.mul = Matrix4.multiply;
+  Matrix4.rotateAxis = Matrix4.rotationAxis;
 
   App.math.Matrix4 = Matrix4;
   App.math.Mat4 = Matrix4;
   App.math.T = Matrix4.translation;
   App.math.S = Matrix4.scaling;
   App.math.mul = Matrix4.multiply;
+  App.math.rotationAxis = Matrix4.rotationAxis;
 
   window.JK = window.JK || {};
   window.JK.Matrix4 = Matrix4;
@@ -269,4 +303,5 @@
   window.JK.T = Matrix4.translation;
   window.JK.S = Matrix4.scaling;
   window.JK.mul = Matrix4.multiply;
+  window.JK.rotationAxis = Matrix4.rotationAxis;
 })();
