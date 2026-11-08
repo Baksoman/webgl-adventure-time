@@ -56,7 +56,7 @@
       spec: 0,
       ow: 0,
       unlit: true,
-      alpha: 0.28,
+      alpha: 0.38,
       shade: DEFAULT_SHADE_COLOR,
     };
   }
@@ -69,7 +69,7 @@
     radiusX,
     radiusZ,
     customAlpha,
-    positionY = 0,
+    positionY = 0.015,
   ) {
     const baseShadowItem = createBaseShadowItem();
     const shadowItem =
@@ -208,6 +208,7 @@
   let currentViewMatrix = null;
   let currentProjectionMatrix = null;
   let currentOutlineWidth = 0.022;
+  let currentRenderOptions = null;
 
   // Merender layar CRT dinamis BMO menggunakan framebuffer tekstur 2D.
   function drawScreen(renderItem, modelMatrix) {
@@ -336,10 +337,11 @@
     glContext.uniform1f(uniformLocations.uSpec, renderItem.spec);
     glContext.uniform1f(uniformLocations.uUnlit, renderItem.unlit ? 1.0 : 0.0);
     glContext.uniform1f(uniformLocations.uAlpha, renderItem.alpha);
-    glContext.uniform3fv(
-      uniformLocations.uShade,
-      renderItem.shade || DEFAULT_SHADE_COLOR,
-    );
+    const activeShade =
+      currentRenderOptions && currentRenderOptions.shade
+        ? currentRenderOptions.shade
+        : renderItem.shade || DEFAULT_SHADE_COLOR;
+    glContext.uniform3fv(uniformLocations.uShade, activeShade);
 
     const cutPlanes =
       isOutlinePass && renderItem.cuts && renderContext
@@ -433,6 +435,7 @@
     );
     currentViewMatrix = viewMatrix;
     currentProjectionMatrix = projectionMatrix;
+    currentRenderOptions = renderOptions;
 
     const cameraDistance = Vector3.length(
       Vector3.subtract(camera.eye, camera.target),
@@ -470,7 +473,18 @@
       uniformLocations.uToon,
       renderOptions && renderOptions.toon ? 1.0 : 0.0,
     );
-    glContext.uniform1f(uniformLocations.uRim, 0.8);
+
+    const lightColor = (renderOptions && renderOptions.lightColor) || [1.05, 1.0, 0.94];
+    const ambientSky = (renderOptions && renderOptions.ambientSky) || [0.65, 0.78, 0.95];
+    const ambientGround = (renderOptions && renderOptions.ambientGround) || [0.38, 0.48, 0.35];
+    const rimColor = (renderOptions && renderOptions.rimColor) || [0.92, 0.96, 1.0];
+    const rimStrength = renderOptions && renderOptions.rim !== undefined ? renderOptions.rim : 0.85;
+
+    if (uniformLocations.uLightColor) glContext.uniform3fv(uniformLocations.uLightColor, lightColor);
+    if (uniformLocations.uAmbientSky) glContext.uniform3fv(uniformLocations.uAmbientSky, ambientSky);
+    if (uniformLocations.uAmbientGround) glContext.uniform3fv(uniformLocations.uAmbientGround, ambientGround);
+    if (uniformLocations.uRimColor) glContext.uniform3fv(uniformLocations.uRimColor, rimColor);
+    glContext.uniform1f(uniformLocations.uRim, rimStrength);
 
     // Pass 1: Outline (Inverted Hull)
     if (renderOptions && renderOptions.outline) {

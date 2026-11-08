@@ -47,6 +47,10 @@
     varying vec3 vWorldPos;
     uniform vec3 uColor;
     uniform vec3 uLightDir;
+    uniform vec3 uLightColor;
+    uniform vec3 uAmbientSky;
+    uniform vec3 uAmbientGround;
+    uniform vec3 uRimColor;
     uniform vec3 uEye;
     uniform float uSpec;
     uniform float uUnlit;
@@ -75,25 +79,35 @@
       vec3 viewDirection = normalize(uEye - vWorldPos);
       float normalDotLight = dot(normalVector, lightDirection);
 
+      // Pencahayaan ambient hemisferik (langit dari atas, pantulan tanah dari bawah)
+      float hemiMix = normalVector.y * 0.5 + 0.5;
+      vec3 ambientLight = mix(uAmbientGround, uAmbientSky, hemiMix);
+
       vec3 finalColor;
-      float specularHighlight = pow(max(dot(normalVector, normalize(lightDirection + viewDirection)), 0.0), 48.0);
+      float specularHighlight = pow(max(dot(normalVector, normalize(lightDirection + viewDirection)), 0.0), 36.0);
 
       if (uToon > 0.5) {
-        vec3 shadowColor = uColor * uShade;
-        vec3 midtoneColor = uColor * 0.90;
-        vec3 litColor = min(uColor * 1.08, vec3(1.0));
-        finalColor = mix(shadowColor, midtoneColor, smoothstep(0.02, 0.07, normalDotLight));
-        finalColor = mix(finalColor, litColor, smoothstep(0.58, 0.64, normalDotLight));
-        specularHighlight = step(0.55, specularHighlight);
+        // Area bayangan mengambil warna ambient atmosfer lingkungan
+        vec3 shadowColor = uColor * uShade * ambientLight * 1.55;
+        // Midtone mendapat perpaduan halus ambient dan cahaya matahari/bulan
+        vec3 midtoneColor = uColor * mix(ambientLight, uLightColor, 0.48);
+        // Area terpapar cahaya langsung mengadopsi warna & intensitas cahaya lingkungan
+        vec3 litColor = uColor * uLightColor * 1.12;
+
+        finalColor = mix(shadowColor, midtoneColor, smoothstep(-0.06, 0.08, normalDotLight));
+        finalColor = mix(finalColor, litColor, smoothstep(0.42, 0.58, normalDotLight));
+        specularHighlight = smoothstep(0.48, 0.56, specularHighlight);
       } else {
-        finalColor = uColor * (0.42 + 0.66 * max(normalDotLight, 0.0));
+        finalColor = uColor * (ambientLight * 0.75 + uLightColor * max(normalDotLight, 0.0));
         specularHighlight = specularHighlight * 0.8;
       }
 
+      // Efek rim/backlight sinematik yang menyatu dengan atmosfer
       float rimFactor = 1.0 - max(dot(normalVector, viewDirection), 0.0);
-      float rimBand = smoothstep(0.66, 0.74, rimFactor) * clamp(normalDotLight + 0.5, 0.0, 1.0);
-      finalColor = mix(finalColor, vec3(1.0, 0.97, 0.78), rimBand * 0.6 * uRim);
-      finalColor = mix(finalColor, vec3(1.0), specularHighlight * uSpec);
+      float rimBand = smoothstep(0.62, 0.78, rimFactor) * clamp(normalDotLight + 0.5, 0.12, 1.0);
+      finalColor += uRimColor * (rimBand * 0.55 * uRim);
+      finalColor += uLightColor * (specularHighlight * uSpec * 0.85);
+
       gl_FragColor = vec4(finalColor, uAlpha);
     }
   `;
@@ -155,6 +169,10 @@
     "uOutline",
     "uColor",
     "uLightDir",
+    "uLightColor",
+    "uAmbientSky",
+    "uAmbientGround",
+    "uRimColor",
     "uEye",
     "uSpec",
     "uUnlit",
