@@ -52,6 +52,8 @@
     constructor() {
       this.meshes = null;
       this.items = null;
+      this.snowParticles = null;
+      this.lastSnowTime = 0;
     }
 
     initMeshes(gl) {
@@ -64,6 +66,27 @@
         crystal: quadrics.coneMesh(gl, 5, 1),
       };
       return this.meshes;
+    }
+
+    // Membuat partikel salju dengan posisi dan kecepatan deterministik.
+    initSnowParticles() {
+      const particles = [];
+
+      for (let i = 0; i < 100; i++) {
+        particles.push({
+          x: (rnd(i + 300) - 0.5) * 130,
+          y: 12 + rnd(i + 400) * 35,
+          z: -85 + rnd(i + 500) * 120,
+
+          size: 0.06 + rnd(i + 600) * 0.08,
+          speed: 4 + rnd(i + 700) * 5,
+
+          wind: -1.2 + rnd(i + 800) * 2.4,
+          drift: -0.5 + rnd(i + 900),
+        });
+      }
+
+      this.snowParticles = particles;
     }
 
     // Matriks dihitung sekali, lalu dipakai ulang tiap frame.
@@ -285,9 +308,68 @@
     }
 
     render(drawList, gl) {
-      if (!this.items) this.items = this.build(gl);
+      if (!this.items) {
+        this.items = this.build(gl);
+      }
+
+      // Render objek lingkungan yang statis.
       for (let i = 0; i < this.items.length; i++) {
         drawList.push(this.items[i]);
+      }
+
+      // Inisialisasi partikel salju satu kali.
+      if (!this.snowParticles) {
+        this.initSnowParticles();
+      }
+
+      // Menghitung delta time agar kecepatan konsisten.
+      const now = performance.now();
+
+      const delta = this.lastSnowTime
+        ? Math.min((now - this.lastSnowTime) / 1000, 0.05)
+        : 1 / 60;
+
+      this.lastSnowTime = now;
+
+      const baseScale = scale(ENV_SCALE, ENV_SCALE, ENV_SCALE);
+
+      // Memperbarui posisi dan merender setiap partikel.
+      for (const p of this.snowParticles) {
+        // Salju jatuh ke bawah.
+        p.y -= p.speed * delta;
+
+        // Angin menggerakkan salju secara horizontal.
+        p.x += p.wind * delta;
+        p.z += p.drift * delta;
+
+        // Partikel yang mencapai tanah kembali ke atas.
+        if (p.y < -2) {
+          p.y = 35 + rnd(p.x * 13 + p.z * 7) * 15;
+        }
+
+        // Membatasi area partikel agar tetap di sekitar lingkungan.
+        if (p.x > 65) p.x = -65;
+        if (p.x < -65) p.x = 65;
+
+        if (p.z > 35) p.z = -85;
+        if (p.z < -85) p.z = 35;
+
+        const particleMatrix = multiply(
+          baseScale,
+          multiply(translate(p.x, p.y, p.z), scale(p.size, p.size, p.size)),
+        );
+
+        drawList.push([
+          {
+            mesh: this.meshes.sphere,
+            color: COLORS.snow,
+            spec: 0.1,
+            ow: 0,
+            shade: SHADE,
+          },
+          particleMatrix,
+          1,
+        ]);
       }
     }
   }
