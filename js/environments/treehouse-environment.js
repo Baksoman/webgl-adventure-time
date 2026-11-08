@@ -133,16 +133,16 @@
         );
 
       // Cincin luar lebih gelap memberi kesan padang rumput tak berujung
-      worldSphere(COLORS.grassFar, [0, -1.1, 0], [135, 1, 135], 0);
-      worldSphere(COLORS.grass, [0, -0.7, 0], [95, 0.7, 95], 0);
+      worldSphere(COLORS.grassFar, [0, -1.1, 0], [135, 1, 135], 0.2);
+      worldSphere(COLORS.grass, [0, -0.7, 0], [95, 0.7, 95], 0.25);
 
       // Jalan setapak dari pohon ke titik spawn karakter
-      worldSphere(COLORS.path, [0, 0, 2], [2.2, 0.06, 10], 0);
+      worldSphere(COLORS.path, [0, 0, 2], [2.2, 0.06, 10], 0.3);
 
       // Kolam kecil dengan daun teratai
-      worldSphere(COLORS.water, [9, 0, 6], [3.5, 0.08, 2.5], 0);
-      worldSphere(COLORS.lily, [8, 0.08, 5.6], [0.5, 0.05, 0.4], 0);
-      worldSphere(COLORS.lily, [10.2, 0.08, 6.6], [0.45, 0.05, 0.4], 0);
+      worldSphere(COLORS.water, [9, 0, 6], [3.5, 0.08, 2.5], 0.3);
+      worldSphere(COLORS.lily, [8, 0.08, 5.6], [0.5, 0.05, 0.4], 0.4);
+      worldSphere(COLORS.lily, [10.2, 0.08, 6.6], [0.45, 0.05, 0.4], 0.4);
 
       // Bukit-bukit jauh sebagai latar
       [

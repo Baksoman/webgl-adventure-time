@@ -431,7 +431,7 @@
       (fieldOfView * Math.PI) / 180,
       aspectRatio,
       0.3,
-      140,
+      340,
     );
     currentViewMatrix = viewMatrix;
     currentProjectionMatrix = projectionMatrix;
@@ -440,7 +440,7 @@
     const cameraDistance = Vector3.length(
       Vector3.subtract(camera.eye, camera.target),
     );
-    currentOutlineWidth = 0.022 * (cameraDistance / 12);
+    currentOutlineWidth = 0.032 * (cameraDistance / 12);
 
     glContext.useProgram(mainShaderProgram);
     // uLightDir dikirim dalam world space agar konsisten dengan vNormal (world-space)
