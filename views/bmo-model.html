@@ -176,14 +176,21 @@
     <!-- Animation Mode Controls -->
     <div class="ui-group">
       <span class="ui-label">Gerak:</span>
-      <button id="btnAnimIdle" class="active" onclick="setAnimationMode('idle')">T-Pose</button>
+      <button id="btnAnimIdle" class="active" onclick="setAnimationMode('idle')">Diam</button>
       <button id="btnAnimWalk" onclick="setAnimationMode('walk')">Jalan</button>
       <button id="btnAnimRun" onclick="setAnimationMode('run')">Lari</button>
+      <button id="btnAnimJump" onclick="setAnimationMode('jump')">Lompat</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="ui-group">
+      <a href="environment.html" class="nav-btn">3D Environment</a>
     </div>
   </div>
 
   <div class="hint-panel">
-    🖱️ Drag mouse untuk orbit kamera • Scroll untuk zoom • Klik kanan drag untuk pan • Shift + drag untuk putar karakter
+    🖱️ Drag mouse untuk orbit kamera • Scroll untuk zoom • Klik kanan drag untuk pan • Shift + drag untuk putar karakter • <b>Spasi</b> untuk lompat
   </div>
 </div>
 
@@ -229,7 +236,11 @@
 
   window.setAnimationMode = function(mode) {
     currentAnimationMode = mode;
-    ['idle', 'walk', 'run'].forEach((animName) => {
+    // Reset animation time untuk jump agar selalu mulai dari awal
+    if (mode === 'jump') {
+      animationTimeSeconds = 0;
+    }
+    ['idle', 'walk', 'run', 'jump'].forEach((animName) => {
       const buttonId = 'btnAnim' + animName.charAt(0).toUpperCase() + animName.slice(1);
       const buttonElement = document.getElementById(buttonId);
       if (buttonElement) {
@@ -362,6 +373,14 @@
     touchDist0 = null;
   });
 
+  // Keyboard handler untuk spasi (lompat)
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      setAnimationMode('jump');
+    }
+  });
+
   // Animation Loop
   let lastTime = performance.now();
 
@@ -374,9 +393,7 @@
       adjustYaw(dt * 0.8);
     }
 
-    if (currentAnimationMode !== 'idle') {
-      animationTimeSeconds += dt;
-    }
+    animationTimeSeconds += dt;
 
     const list = [];
 
