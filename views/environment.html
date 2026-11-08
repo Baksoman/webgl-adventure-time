@@ -198,6 +198,13 @@
         <div class="divider"></div>
 
         <div class="ui-group">
+          <button id="btnSwordTransform" style="font-weight: 700;">Pedang</button>
+          <button id="btnBmoDance" style="font-weight: 700;">Dance BMO</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="ui-group">
           <button data-toggle-rotate>Rotasi Otomatis</button>
         </div>
 
@@ -209,7 +216,7 @@
       </div>
 
       <div class="hint-panel" id="hintBar">
-        🎮 <b>W A S D / Tombol Arah</b>: Jalan & Diagonal • <b>Shift</b>: Lari • <b>Spasi</b>: Lompat • <b>V</b>: Sembunyikan/Munculkan UI • Drag Mouse: Putar Kamera • Scroll: Zoom
+        🎮 <b>W A S D / Tombol Arah</b>: Jalan & Diagonal • <b>Shift</b>: Lari • <b>Spasi</b>: Lompat • <b>⚔️ Pedang</b>: Jake jadi pedang & lompat ke tangan Finn • <b>F</b>: Ayun pedang (setelah pegang pedang) • <b>G</b>: Ganti Map • <b>R</b>: Siang/Sore • <b>V</b>: Sembunyikan/Munculkan UI • Drag Mouse: Putar Kamera • Scroll: Zoom
       </div>
     </div>
 
@@ -240,6 +247,7 @@
     <script src="../js/animations/finn-animations.js"></script>
     <script src="../js/animations/jake-animations.js"></script>
     <script src="../js/animations/bmo-animations.js"></script>
+    <script src="../js/animations/sword-transformation-animation.js"></script>
 
     <!-- 7. 3D Environments -->
     <script src="../js/environments/sky-dome.js"></script>
@@ -281,6 +289,9 @@
         const jake = new AT.JakeActor();
         const bmo = new AT.BMOActor();
         const gizmo = new AT.AxisGizmo();
+
+        // Inisialisasi Sword Transformation Animation
+        const swordAnimation = AT.animations.swordTransformation;
 
         // Inisialisasi Lingkungan
         const skyDome = new AT.SkyDome();
@@ -325,9 +336,48 @@
 
         // State Animasi & Lingkungan
         let currentAnimationMode = "idle";
+        let previousAnimationMode = "idle"; // Mode sebelum jump
+        let isJumpLocked = false; // Flag untuk mencegah interrupt animasi jump
         let animationTimeSeconds = 0;
         let autoRotate = false;
         let activeEnvironment = "treehouse";
+        let currentTimeOfDay = "day"; // State waktu: day, sunset, night
+
+        // Sword Transformation State
+        let isSwordAnimationActive = false;
+
+        // BMO Dance State
+        let isBmoDancing = false;
+
+        // Event listener untuk tombol Pedang
+        document.getElementById("btnSwordTransform").addEventListener("click", function() {
+          if (isSwordAnimationActive) {
+            // Reset animasi
+            swordAnimation.reset();
+            jake.setSwordMode(false);
+            isSwordAnimationActive = false;
+            this.classList.remove("active");
+          } else {
+            // Mulai animasi transformasi pedang
+            swordAnimation.startAnimation();
+            isSwordAnimationActive = true;
+            this.classList.add("active");
+          }
+        });
+
+        // Event listener untuk tombol Dance BMO
+        document.getElementById("btnBmoDance").addEventListener("click", function() {
+          if (isBmoDancing) {
+            // Stop dancing, kembali ke mode animasi normal
+            isBmoDancing = false;
+            this.classList.remove("active");
+          } else {
+            // Mulai menari
+            isBmoDancing = true;
+            animTimes.bmo = 0; // Reset waktu animasi BMO
+            this.classList.add("active");
+          }
+        });
 
         // Fungsi interpolasi sudut putar terpendek (agar tidak berputar 360 derajat)
         function lerpAngle(current, target, rate) {
@@ -346,7 +396,16 @@
             
             // Trigger animasi lompat ketika spasi ditekan
             if (e.code === "Space") {
+              // Cegah lompat jika sedang dalam animasi jump yang locked
+              if (isJumpLocked) return;
+              
+              // Simpan mode sebelum jump
+              if (currentAnimationMode !== "jump") {
+                previousAnimationMode = currentAnimationMode;
+              }
               currentAnimationMode = "jump";
+              isJumpLocked = true; // Lock animasi jump
+              
               // Reset waktu animasi untuk karakter yang aktif
               if (activeControlTarget === "all") {
                 animTimes.finn = 0;
@@ -366,6 +425,11 @@
               });
             }
           }
+
+          // Trigger animasi mengayun pedang ketika tombol F ditekan (hanya jika Finn sudah pegang pedang)
+          if (e.code === "KeyF" && isSwordAnimationActive && swordAnimation.isAnimationComplete()) {
+            swordAnimation.startSwing();
+          }
         });
         window.addEventListener("keyup", (e) => {
           delete pressedKeys[e.code];
@@ -379,6 +443,7 @@
             activeEnvironment = theme;
           },
           onTimeChange: (timeKey) => {
+            currentTimeOfDay = timeKey;
             skyDome.setPreset(timeKey);
           },
           onCameraPresetSelect: (presetKey) => {
@@ -391,9 +456,9 @@
             const hint = document.getElementById("hintBar");
             if (hint) {
               if (presetKey === "free") {
-                hint.innerHTML = "🎥 <b>Mode Kamera Bebas</b>: W A S D / Panah: Terbang • Q / E / Spasi: Turun / Naik • Shift: Cepat • <b>V</b>: Sembunyikan UI • Drag Mouse: Putar • Scroll: Zoom";
+                hint.innerHTML = "🎥 <b>Mode Kamera Bebas</b>: <b>W A S D</b>: Terbang • <b>Arrow Keys (↑↓←→)</b>: Arah pandang • <b>Q / E / Spasi</b>: Turun / Naik • <b>Shift</b>: Cepat • <b>⚔️ Pedang</b>: Animasi transformasi • <b>F</b>: Ayun pedang • <b>G</b>: Ganti Map • <b>R</b>: Siang/Sore • <b>V</b>: Sembunyikan UI • Drag Mouse: Putar • Scroll: Zoom";
               } else {
-                hint.innerHTML = "🎮 <b>W A S D / Tombol Arah</b>: Jalan & Diagonal • <b>Shift</b>: Lari • <b>Spasi</b>: Lompat • <b>V</b>: Sembunyikan/Munculkan UI • Drag Mouse: Putar • Scroll: Zoom";
+                hint.innerHTML = "🎮 <b>W A S D / Tombol Arah</b>: Jalan & Diagonal • <b>Shift</b>: Lari • <b>Spasi</b>: Lompat • <b>⚔️ Pedang</b>: Jake jadi pedang & lompat ke tangan Finn • <b>F</b>: Ayun pedang • <b>G</b>: Ganti Map • <b>R</b>: Siang/Sore • <b>V</b>: Sembunyikan/Munculkan UI • Drag Mouse: Putar • Scroll: Zoom";
               }
             }
           },
@@ -413,12 +478,29 @@
           initialMode: "idle",
           initialAutoRotate: false,
           onModeChange: (mode) => {
+            // Cegah perubahan mode jika sedang dalam animasi jump yang locked
+            if (isJumpLocked && mode !== "jump") {
+              // Kembalikan UI button ke mode jump
+              const animButtons = document.querySelectorAll("[data-anim-mode]");
+              animButtons.forEach((btn) => {
+                btn.classList.toggle("active", btn.getAttribute("data-anim-mode") === "jump");
+              });
+              return;
+            }
+            
+            // Simpan mode sebelumnya jika bukan jump
+            if (currentAnimationMode !== "jump") {
+              previousAnimationMode = currentAnimationMode;
+            }
             currentAnimationMode = mode;
           },
           onAutoRotateToggle: (isRotating) => {
             autoRotate = isRotating;
           },
           onJumpTrigger: () => {
+            // Cegah trigger jump jika sedang dalam animasi jump yang locked
+            if (isJumpLocked) return;
+            
             // Reset waktu animasi untuk karakter yang aktif agar animasi lompat dimulai dari awal
             if (activeControlTarget === "all") {
               animTimes.finn = 0;
@@ -448,6 +530,45 @@
         window.addEventListener("keydown", (e) => {
           if (e.code === "KeyV") {
             toggleUI();
+          }
+          
+          // Shortcut keyboard G untuk ganti map/environment secara berurutan
+          if (e.code === "KeyG") {
+            const envOrder = ["treehouse", "candy-kingdom", "ice-kingdom"];
+            const currentIndex = envOrder.indexOf(activeEnvironment);
+            const nextIndex = (currentIndex + 1) % envOrder.length;
+            const nextEnv = envOrder[nextIndex];
+            
+            // Update activeEnvironment
+            activeEnvironment = nextEnv;
+            
+            // Update tombol UI agar sesuai
+            const envButtons = document.querySelectorAll("[data-env]");
+            envButtons.forEach((btn) => {
+              btn.classList.toggle("active", btn.getAttribute("data-env") === nextEnv);
+            });
+            
+            // Tampilkan notifikasi singkat (opsional)
+            console.log(`Environment changed to: ${nextEnv}`);
+          }
+          
+          // Shortcut keyboard R untuk toggle waktu antara siang (day) dan sore (sunset)
+          if (e.code === "KeyR") {
+            // Toggle antara day dan sunset
+            const newTime = currentTimeOfDay === "day" ? "sunset" : "day";
+            currentTimeOfDay = newTime;
+            
+            // Update sky dome
+            skyDome.setPreset(newTime);
+            
+            // Update tombol UI agar sesuai
+            const timeButtons = document.querySelectorAll("[data-time]");
+            timeButtons.forEach((btn) => {
+              btn.classList.toggle("active", btn.getAttribute("data-time") === newTime);
+            });
+            
+            // Tampilkan notifikasi singkat (opsional)
+            console.log(`Time of day changed to: ${newTime}`);
           }
         });
 
@@ -528,16 +649,26 @@
           let inputForward = 0;
           let inputRight = 0;
 
-          if (pressedKeys["KeyW"] || pressedKeys["ArrowUp"]) inputForward += 1;
-          if (pressedKeys["KeyS"] || pressedKeys["ArrowDown"]) inputForward -= 1;
-          if (pressedKeys["KeyD"] || pressedKeys["ArrowRight"]) inputRight += 1;
-          if (pressedKeys["KeyA"] || pressedKeys["ArrowLeft"]) inputRight -= 1;
+          // Di mode kamera bebas, Arrow Keys untuk kontrol arah pandang, bukan gerakan
+          if (activeCameraPreset === "free") {
+            // WASD hanya untuk gerakan posisi kamera
+            if (pressedKeys["KeyW"]) inputForward += 1;
+            if (pressedKeys["KeyS"]) inputForward -= 1;
+            if (pressedKeys["KeyD"]) inputRight += 1;
+            if (pressedKeys["KeyA"]) inputRight -= 1;
+          } else {
+            // Mode normal: WASD dan Arrow Keys untuk gerakan karakter
+            if (pressedKeys["KeyW"] || pressedKeys["ArrowUp"]) inputForward += 1;
+            if (pressedKeys["KeyS"] || pressedKeys["ArrowDown"]) inputForward -= 1;
+            if (pressedKeys["KeyD"] || pressedKeys["ArrowRight"]) inputRight += 1;
+            if (pressedKeys["KeyA"] || pressedKeys["ArrowLeft"]) inputRight -= 1;
+          }
 
           const isMoving = inputForward !== 0 || inputRight !== 0;
           let activeLocoMode = currentAnimationMode;
 
           if (activeCameraPreset === "free") {
-            // Mode Kamera Bebas: W A S D / Panah menggerakkan posisi kamera bebas ke mana saja
+            // Mode Kamera Bebas: W A S D untuk gerakan, Arrow Keys untuk arah pandang
             const isSprint = Boolean(pressedKeys["ShiftLeft"] || pressedKeys["ShiftRight"]);
             const flySpeed = (isSprint ? 24.0 : 9.5) * Math.max(0.8, Math.min(3.5, camState.dist * 0.1));
 
@@ -555,6 +686,7 @@
             const rightX = cy;
             const rightZ = -sy;
 
+            // WASD: Gerakan posisi kamera
             if (inputForward !== 0) {
               camState.target[0] += fwdX * inputForward * flySpeed * dt;
               camState.target[1] += fwdY * inputForward * flySpeed * dt;
@@ -564,11 +696,29 @@
               camState.target[0] += rightX * inputRight * flySpeed * dt;
               camState.target[2] += rightZ * inputRight * flySpeed * dt;
             }
+            
+            // Q/E atau Spasi/Ctrl: Naik/turun
             if (pressedKeys["KeyE"] || pressedKeys["Space"]) {
               camState.target[1] += flySpeed * dt;
             }
             if (pressedKeys["KeyQ"] || pressedKeys["ControlLeft"] || pressedKeys["ControlRight"]) {
               camState.target[1] -= flySpeed * dt;
+            }
+
+            // Arrow Keys: Kontrol arah pandang kamera (yaw dan pitch) dengan smooth rotation
+            const rotationSpeed = 0.2; 
+            
+            if (pressedKeys["ArrowLeft"]) {
+              camState.yaw -= rotationSpeed * dt;
+            }
+            if (pressedKeys["ArrowRight"]) {
+              camState.yaw += rotationSpeed * dt;
+            }
+            if (pressedKeys["ArrowUp"]) {
+              camState.pitch = Math.max(-1.48, camState.pitch - rotationSpeed * dt);
+            }
+            if (pressedKeys["ArrowDown"]) {
+              camState.pitch = Math.min(1.48, camState.pitch + rotationSpeed * dt);
             }
           } else {
             // Mode Terikat Karakter: W A S D / Panah menggerakkan karakter
@@ -647,6 +797,45 @@
           animTimes.jake += dt;
           animTimes.bmo += dt;
 
+          // Auto-return dari jump ke mode sebelumnya setelah animasi selesai
+          if (currentAnimationMode === "jump" && isJumpLocked) {
+            // Cek durasi jump terpanjang (Jake: 1.35s, Finn: 1.25s, BMO: 1.25s)
+            const maxJumpDuration = 1.35;
+            
+            // Cek apakah karakter yang aktif sudah selesai jump
+            let jumpFinished = false;
+            if (activeControlTarget === "all") {
+              jumpFinished = animTimes.finn >= 1.25 && animTimes.jake >= 1.35 && animTimes.bmo >= 1.25;
+            } else if (activeControlTarget === "finn") {
+              jumpFinished = animTimes.finn >= 1.25;
+            } else if (activeControlTarget === "jake") {
+              jumpFinished = animTimes.jake >= 1.35;
+            } else if (activeControlTarget === "bmo") {
+              jumpFinished = animTimes.bmo >= 1.25;
+            }
+
+            if (jumpFinished) {
+              currentAnimationMode = previousAnimationMode;
+              isJumpLocked = false; // Unlock setelah selesai
+              // Update UI button
+              const animButtons = document.querySelectorAll("[data-anim-mode]");
+              animButtons.forEach((btn) => {
+                btn.classList.toggle("active", btn.getAttribute("data-anim-mode") === currentAnimationMode);
+              });
+            }
+          }
+
+          // Update sword transformation animation
+          if (isSwordAnimationActive) {
+            swordAnimation.updateAnimationTime(dt);
+            jake.setSwordMode(swordAnimation.shouldJakeBeInSwordMode());
+            
+            // Jika animasi selesai, auto-reset button
+            if (swordAnimation.isAnimationComplete()) {
+              // Biarkan tetap di state akhir, tidak auto-reset
+            }
+          }
+
           const drawList = [];
 
           // 1. Render Lingkungan Latar
@@ -684,31 +873,70 @@
           }
 
           // 2. Render Karakter Finn
-          const finnPose = AT.animations.getCharacterLocomotionPose(
-            "finn",
-            finnPoseMode,
-            animTimes.finn,
-            POSITIONS.finn,
-            YAWS.finn,
-            1.0,
-          );
+          let finnPose;
+          if (isSwordAnimationActive) {
+            const swordFinnPose = swordAnimation.getFinnPose(finnPoseMode, animTimes.finn);
+            if (swordFinnPose) {
+              finnPose = swordFinnPose;
+            } else {
+              finnPose = AT.animations.getCharacterLocomotionPose(
+                "finn",
+                finnPoseMode,
+                animTimes.finn,
+                POSITIONS.finn,
+                YAWS.finn,
+                1.0,
+              );
+            }
+          } else {
+            finnPose = AT.animations.getCharacterLocomotionPose(
+              "finn",
+              finnPoseMode,
+              animTimes.finn,
+              POSITIONS.finn,
+              YAWS.finn,
+              1.0,
+            );
+          }
           finn.frame(dt, finnPose, drawList);
 
           // 3. Render Karakter Jake
-          const jakePose = AT.animations.getCharacterLocomotionPose(
-            "jake",
-            jakePoseMode,
-            animTimes.jake,
-            POSITIONS.jake,
-            YAWS.jake,
-            0.42,
-          );
+          let jakePose;
+          if (isSwordAnimationActive) {
+            const swordJakePose = swordAnimation.getJakePose(jakePoseMode, animTimes.jake);
+            if (swordJakePose) {
+              jakePose = swordJakePose;
+            } else {
+              jakePose = AT.animations.getCharacterLocomotionPose(
+                "jake",
+                jakePoseMode,
+                animTimes.jake,
+                POSITIONS.jake,
+                YAWS.jake,
+                0.42,
+              );
+            }
+          } else {
+            jakePose = AT.animations.getCharacterLocomotionPose(
+              "jake",
+              jakePoseMode,
+              animTimes.jake,
+              POSITIONS.jake,
+              YAWS.jake,
+              0.42,
+            );
+          }
           jake.frame(dt, jakePose, drawList);
 
           // 4. Render Karakter BMO
+          let bmoAnimationMode = bmoPoseMode;
+          if (isBmoDancing) {
+            bmoAnimationMode = "dance";
+          }
+          
           const bmoPose = AT.animations.getCharacterLocomotionPose(
             "bmo",
-            bmoPoseMode,
+            bmoAnimationMode,
             animTimes.bmo,
             POSITIONS.bmo,
             YAWS.bmo,
