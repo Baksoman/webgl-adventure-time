@@ -184,6 +184,15 @@
 
     <div class="divider"></div>
 
+    <!-- Sword Mode Toggle -->
+    <div class="ui-group">
+      <span class="ui-label">Mode:</span>
+      <button id="btnModeNormal" class="active" onclick="toggleSwordMode(false)">Normal</button>
+      <button id="btnModeSword" onclick="toggleSwordMode(true)">⚔️ Pedang</button>
+    </div>
+
+    <div class="divider"></div>
+
     <div class="ui-group">
       <a href="environment.html" class="nav-btn">3D Environment</a>
     </div>
@@ -233,6 +242,18 @@
   // Animation State
   let currentAnimationMode = 'idle';
   let animationTimeSeconds = 0;
+
+  // Sword Mode State
+  let isSwordMode = false;
+
+  window.toggleSwordMode = function(enableSword) {
+    isSwordMode = enableSword;
+    jake.setSwordMode(enableSword);
+    
+    // Update button states
+    document.getElementById('btnModeNormal').classList.toggle('active', !enableSword);
+    document.getElementById('btnModeSword').classList.toggle('active', enableSword);
+  };
 
   window.setAnimationMode = function(mode) {
     currentAnimationMode = mode;

@@ -6,7 +6,7 @@
 
   const { Mat4, V3, T: translate, S: scale, mul: multiply } = App.math;
   const { MeshCache } = App.gfx;
-  const { quadrics, curves } = App.geom;
+  const { quadrics, curves, gridMesh } = App.geom;
   const { solveTwoBoneIK, orientLimb } = App.anim;
 
   const rotateX = Mat4.rotationX;
@@ -26,6 +26,7 @@
     body: hexToRgb("#faba2b"),
     eyeRim: hexToRgb("#0a080a"),
     eyeWhite: hexToRgb("#ffffff"),
+    swordDetail: hexToRgb("#d4921a"),
   };
 
   const SHADE_COLOR = [0.66, 0.54, 0.58];
@@ -84,6 +85,34 @@
   const FINGER_OFFSETS_X = [-0.035, 0, 0.035];
   const FINGER_LENGTH_SCALES = [1, 1.1, 1.1];
 
+  const SWORD = {
+    hoverHeight: 0.6,
+    pommelRadius: 0.26,
+    gripLength: 1.0,
+    gripRadius: 0.14,
+    guardHalfWidth: 1.05,
+    guardRadius: 0.12,
+    guardKnobRadius: 0.2,
+    bladeLength: 3.8,
+    bladeHalfWidth: 0.62,
+    bladeHalfThickness: 0.11,
+    tipLength: 1.2,
+    faceEyeX: 0.28,
+  };
+
+  const SWORD_EYEBROW_POINTS = [
+    [-0.18, -0.02, 0.01],
+    [-0.06, 0.04, 0],
+    [0.08, 0.1, -0.01],
+    [0.2, 0.16, -0.03],
+  ];
+
+  const SWORD_GRIP_BOTTOM_Y = 0.4;
+  const SWORD_GRIP_TOP_Y = SWORD_GRIP_BOTTOM_Y + SWORD.gripLength;
+  const SWORD_GUARD_Y = SWORD_GRIP_TOP_Y + 0.05;
+  const SWORD_BLADE_BOTTOM_Y = SWORD_GUARD_Y + 0.05;
+  const SWORD_EYE_Y = SWORD_BLADE_BOTTOM_Y + 1.0;
+
   const EYE_Z_OFFSET = calculateBodyDepthZ(EYE.x, EYE.y) - 0.08;
   const NOSE_Z = calculateBodyDepthZ(0, NOSE_Y) + 0.02;
 
@@ -122,7 +151,9 @@
     upperArm: translate(0.0, -0.26, 0),
     forearm: translate(0, -0.2, 0),
     // Rotasi Y ±90° agar telapak menghadap ke badan (posisi tetap/diam untuk jalan maupun lari)
-    hand: forBothSides((side) => multiply(translate(0, -0.42, 0), rotateY(side * Math.PI / 2))),
+    hand: forBothSides((side) =>
+      multiply(translate(0, -0.42, 0), rotateY((side * Math.PI) / 2)),
+    ),
 
     // Pangkal jari = titik putar jari
     fingerBase: FINGER_OFFSETS_X.map((offsetX) => translate(offsetX, -0.05, 0)),
@@ -136,7 +167,81 @@
         multiply(rotateZ(-side * 0.8), translate(0, -0.025, 0)),
       ),
     ),
+
+    swordBlade: translate(0, SWORD_BLADE_BOTTOM_Y, 0),
+    swordGuard: multiply(translate(0, SWORD_GUARD_Y, 0), rotateZ(Math.PI / 2)),
+    swordGuardKnob: forBothSides((side) =>
+      translate(side * SWORD.guardHalfWidth, SWORD_GUARD_Y, 0),
+    ),
+    swordGrip: translate(0, (SWORD_GRIP_BOTTOM_Y + SWORD_GRIP_TOP_Y) / 2, 0),
+    swordPommel: translate(0, SWORD.pommelRadius, 0),
+    swordEyeSocket: forBothSides((side) =>
+      translate(
+        side * SWORD.faceEyeX,
+        SWORD_EYE_Y,
+        SWORD.bladeHalfThickness - 0.04,
+      ),
+    ),
+    swordEyebrow: forBothSides((side) =>
+      translate(
+        side * SWORD.faceEyeX,
+        SWORD_EYE_Y + 0.17,
+        SWORD.bladeHalfThickness,
+      ),
+    ),
+    swordEyeRim: multiply(translate(0, 0, -0.02), scale(0.21, 0.21, 0.1)),
+    swordEyeWhite: scale(0.18, 0.18, 0.1),
+    swordNose: multiply(
+      translate(0, SWORD_EYE_Y - 0.22, SWORD.bladeHalfThickness - 0.01),
+      rotateX(Math.PI / 2),
+    ),
+    swordMouth: multiply(
+      translate(0, SWORD_EYE_Y - 0.42, SWORD.bladeHalfThickness + 0.01),
+      rotateZ(Math.PI),
+    ),
   };
+
+  // Membuat mesh bilah pedang satu permukaan: penampang lensa dengan ujung runcing yang menyatu mulus
+  function createSwordBladeMesh(gl) {
+    const totalLength = SWORD.bladeLength + SWORD.tipLength;
+
+    const calculateWidthFactor = (height) => {
+      if (height <= SWORD.bladeLength) return 1;
+      const tipProgress = (height - SWORD.bladeLength) / SWORD.tipLength;
+      return 1 - Math.pow(tipProgress, 1.5);
+    };
+
+    const calculateWidthFactorSlope = (height) => {
+      if (height <= SWORD.bladeLength) return 0;
+      const tipProgress = (height - SWORD.bladeLength) / SWORD.tipLength;
+      return (-1.5 * Math.sqrt(tipProgress)) / SWORD.tipLength;
+    };
+
+    return gridMesh(
+      gl,
+      24,
+      40,
+      (normalizedAngle, normalizedHeight) => {
+        const angle = 2 * Math.PI * normalizedAngle;
+        const height = normalizedHeight * totalLength;
+        const widthFactor = calculateWidthFactor(height);
+        return [
+          SWORD.bladeHalfWidth * widthFactor * Math.cos(angle),
+          height,
+          SWORD.bladeHalfThickness * widthFactor * Math.sin(angle),
+        ];
+      },
+      (normalizedAngle, normalizedHeight) => {
+        const angle = 2 * Math.PI * normalizedAngle;
+        const slope = calculateWidthFactorSlope(normalizedHeight * totalLength);
+        return V3.norm([
+          Math.cos(angle) / SWORD.bladeHalfWidth,
+          -slope,
+          Math.sin(angle) / SWORD.bladeHalfThickness,
+        ]);
+      },
+    );
+  }
 
   let sharedMeshes = null;
 
@@ -341,13 +446,29 @@
       ),
       // Paha dan betis (segmen kaki yang dipisah oleh sendi lutut IK)
       thigh: createPart(
-        superellipsoid(LEG.radius, LEG.thighLength / 2, LEG.radius, 0.2, 1, 16, 8),
+        superellipsoid(
+          LEG.radius,
+          LEG.thighLength / 2,
+          LEG.radius,
+          0.2,
+          1,
+          16,
+          8,
+        ),
         COLORS.body,
         0,
         0.7,
       ),
       shin: createPart(
-        superellipsoid(LEG.radius, LEG.shinLength / 2, LEG.radius, 0.2, 1, 16, 8),
+        superellipsoid(
+          LEG.radius,
+          LEG.shinLength / 2,
+          LEG.radius,
+          0.2,
+          1,
+          16,
+          8,
+        ),
         COLORS.body,
         0,
         0.7,
@@ -407,6 +528,106 @@
         0,
         0.4,
       ),
+
+      swordBlade: createPart(
+        MeshCache.get("sword_blade_lens", () => createSwordBladeMesh(gl)),
+        COLORS.body,
+        0.5,
+        0.7,
+      ),
+      swordGuard: createPart(
+        superellipsoid(
+          SWORD.guardRadius,
+          SWORD.guardHalfWidth,
+          SWORD.guardRadius * 1.3,
+          0.2,
+          1,
+          16,
+          8,
+        ),
+        COLORS.swordDetail,
+        0.4,
+        0.6,
+      ),
+      swordGuardKnob: createPart(
+        ellipsoid(
+          SWORD.guardKnobRadius,
+          SWORD.guardKnobRadius,
+          SWORD.guardKnobRadius,
+          16,
+          10,
+        ),
+        COLORS.body,
+        0.2,
+        0.6,
+      ),
+      swordGrip: createPart(
+        superellipsoid(
+          SWORD.gripRadius,
+          SWORD.gripLength / 2,
+          SWORD.gripRadius,
+          0.2,
+          1,
+          16,
+          8,
+        ),
+        COLORS.swordDetail,
+        0.1,
+        0.6,
+      ),
+      swordPommel: createPart(
+        ellipsoid(
+          SWORD.pommelRadius,
+          SWORD.pommelRadius,
+          SWORD.pommelRadius,
+          20,
+          12,
+        ),
+        COLORS.swordDetail,
+        0.4,
+        0.6,
+      ),
+      swordEyebrow: forBothSides((side) =>
+        createPart(
+          MeshCache.get(
+            side === RIGHT
+              ? "sword_brow_right_bezier"
+              : "sword_brow_left_bezier",
+            () =>
+              curves.bezierTubeMesh(gl, {
+                controlPoints: SWORD_EYEBROW_POINTS.map(
+                  ([pointX, pointY, pointZ]) => [side * pointX, pointY, pointZ],
+                ),
+                radius: 0.04,
+                capLen: 0.04,
+                uSeg: 12,
+                vSeg: 32,
+              }),
+          ),
+          COLORS.eyeRim,
+          0.1,
+          0,
+        ),
+      ),
+      swordMouth: createPart(
+        MeshCache.get("mouth_jake_sword_bezier", () =>
+          curves.bezierTubeMesh(gl, {
+            controlPoints: [
+              [-0.16, 0.05, 0],
+              [-0.11, -0.06, 0],
+              [0.11, -0.06, 0],
+              [0.16, 0.05, 0],
+            ],
+            radius: 0.022,
+            capLen: 0.03,
+            uSeg: 12,
+            vSeg: 32,
+          }),
+        ),
+        COLORS.eyeRim,
+        0.1,
+        0,
+      ),
     };
 
     return sharedMeshes;
@@ -414,10 +635,22 @@
 
   class JakeActor {
     constructor() {
-      this.state = { elapsedTime: 0 };
+      this.state = {
+        elapsedTime: 0,
+        swordMode: false,
+      };
+    }
+
+    // Mengubah mode transformasi Jake antara normal dan pedang
+    setSwordMode(isSwordMode) {
+      this.state.swordMode = isSwordMode;
     }
 
     frame(deltaTime, pose, drawList) {
+      if (this.state.swordMode) {
+        this.frameSword(deltaTime, pose, drawList);
+        return;
+      }
       this.state.elapsedTime += deltaTime;
       const parts = initMeshes(window.JK.gl);
       const addPart = (part, matrix) => drawList.push([part, matrix, 1]);
@@ -439,7 +672,10 @@
       // Kaki dan telapak kaki (dengan sendi lutut IK two-bone)
       BOTH_SIDES.forEach((side, sideIndex) => {
         const legSwing = side === RIGHT ? pose.lr || 0 : pose.ll || 0;
-        const kneeBend = Math.max(0, side === RIGHT ? pose.kr || 0 : pose.kl || 0);
+        const kneeBend = Math.max(
+          0,
+          side === RIGHT ? pose.kr || 0 : pose.kl || 0,
+        );
 
         // Hip socket dalam ruang lokal placement
         const hipSocketPos = [side * LEG.x, LEG.topY, 0];
@@ -449,7 +685,8 @@
         const ankleTarget = [
           hipSocketPos[0],
           hipSocketPos[1] - Math.cos(legSwing) * effectiveLen,
-          Math.sin(legSwing) * effectiveLen - Math.sin(kneeBend) * LEG.shinLength * 0.5,
+          Math.sin(legSwing) * effectiveLen -
+            Math.sin(kneeBend) * LEG.shinLength * 0.5,
         ];
 
         // Pole vector lutut mengarah ke depan (+Z)
@@ -478,7 +715,13 @@
 
         // Telapak kaki di ujung betis
         const ankleFrame = multiply(shinFrame, LOCAL_TRANSFORMS.ankle);
-        addPart(parts.foot, multiply(ankleFrame, multiply(translate(0, 0, 0.15), scale(0.2, 0.15, 0.35))));
+        addPart(
+          parts.foot,
+          multiply(
+            ankleFrame,
+            multiply(translate(0, 0, 0.15), scale(0.2, 0.15, 0.35)),
+          ),
+        );
       });
 
       // Mata (kiri dan kanan)
@@ -528,7 +771,7 @@
         } else if (armTarget && armTarget.l) {
           handTarget = armTarget.l.map((coord) => coord / ARM_SCALE);
         } else {
-          handTarget = [shoulderPosition[0] + side, shoulderPosition[1], 0]; 
+          handTarget = [shoulderPosition[0] + side, shoulderPosition[1], 0];
         }
 
         const elbowPole = (armTarget && armTarget.pole) || [0, 0, -1];
@@ -555,7 +798,10 @@
         );
 
         // Tangan dan jari
-        const handFrame = multiply(forearmFrame, LOCAL_TRANSFORMS.hand[sideIndex]);
+        const handFrame = multiply(
+          forearmFrame,
+          LOCAL_TRANSFORMS.hand[sideIndex],
+        );
         addPart(parts.palm, handFrame);
 
         LOCAL_TRANSFORMS.fingerBase.forEach((fingerBase, fingerIndex) => {
@@ -580,6 +826,64 @@
         placement[14],
         0.8 * uniformScale,
         0.62 * uniformScale,
+      );
+    }
+
+    // Merender Jake yang berubah menjadi pedang kuning dengan wajahnya di bilah
+    frameSword(deltaTime, pose, drawList) {
+      this.state.elapsedTime += deltaTime;
+      const parts = initMeshes(window.JK.gl);
+      const addPart = (part, matrix) => drawList.push([part, matrix, 1]);
+
+      const uniformScale = pose.scale || 0.42;
+      const placement = multiply(
+        pose.placeMat ||
+          Mat4.chain(
+            translate(pose.x || 0, pose.y || 0, pose.z || 0),
+            rotateY(pose.yaw || 0),
+            scale(uniformScale, uniformScale, uniformScale),
+          ),
+        LOCAL_TRANSFORMS.ground,
+      );
+      const swordFrame = multiply(
+        placement,
+        translate(0, SWORD.hoverHeight, 0),
+      );
+      const addSwordPart = (part, localTransform) =>
+        addPart(part, multiply(swordFrame, localTransform));
+
+      addSwordPart(parts.swordBlade, LOCAL_TRANSFORMS.swordBlade);
+      addSwordPart(parts.swordGuard, LOCAL_TRANSFORMS.swordGuard);
+      LOCAL_TRANSFORMS.swordGuardKnob.forEach((knobTransform) => {
+        addSwordPart(parts.swordGuardKnob, knobTransform);
+      });
+      addSwordPart(parts.swordGrip, LOCAL_TRANSFORMS.swordGrip);
+      addSwordPart(parts.swordPommel, LOCAL_TRANSFORMS.swordPommel);
+
+      BOTH_SIDES.forEach((side, sideIndex) => {
+        const eyeFrame = multiply(
+          swordFrame,
+          LOCAL_TRANSFORMS.swordEyeSocket[sideIndex],
+        );
+        addPart(parts.eyeRim, multiply(eyeFrame, LOCAL_TRANSFORMS.swordEyeRim));
+        addPart(
+          parts.eyeWhite,
+          multiply(eyeFrame, LOCAL_TRANSFORMS.swordEyeWhite),
+        );
+        addSwordPart(
+          parts.swordEyebrow[sideIndex],
+          LOCAL_TRANSFORMS.swordEyebrow[sideIndex],
+        );
+      });
+      addSwordPart(parts.nose, LOCAL_TRANSFORMS.swordNose);
+      addSwordPart(parts.swordMouth, LOCAL_TRANSFORMS.swordMouth);
+
+      window.AT.shadow(
+        drawList,
+        placement[12],
+        placement[14],
+        0.7 * uniformScale,
+        0.4 * uniformScale,
       );
     }
   }
