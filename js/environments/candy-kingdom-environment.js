@@ -100,7 +100,7 @@
       };
 
       // 1. TANAH + JALAN BERKELOK
-      add(meshes.solid, COLORS.ground, place(0, -0.6, 0, 32, 0.6, 32), 0.3);
+      add(meshes.solid, COLORS.ground, place(0, -0.6, 0, 128, 0.6, 128), 0.3);
 
       for (let i = 0; i <= 8; i++) {
         const t = i / 8;
