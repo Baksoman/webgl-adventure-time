@@ -116,133 +116,54 @@
     );
   }
 
-  // Membuat target lengan yang menggantung lurus di samping badan dan mengayun pelan
-  function createHangingArm(side, swingAngle, forwardOffset) {
-    const proportions = BMO_PROPORTIONS;
-    const outwardOffset = 0.5;
-    const reach = proportions.armLength;
-    const planarReach = Math.sqrt(
-      Math.max(reach * reach - outwardOffset * outwardOffset, 0),
-    );
-
+  // Sudut rotasi bahu untuk lompat: sudut 0 menggantung, makin besar makin terangkat.
+  function createJumpArm(raiseAngle) {
     return {
-      l: [
-        side * (proportions.shoulderWidth + outwardOffset),
-        proportions.shoulderHeight - Math.cos(swingAngle) * planarReach,
-        Math.sin(swingAngle) * planarReach + forwardOffset,
-      ],
-      pole: [side * 0.3, -0.1, -0.9],
+      raise: raiseAngle,
+      elbow: -0.12,
     };
   }
 
-  // Membuat target lengan untuk lompat: sudut 0 menggantung, makin besar makin terangkat ke atas
-  function createJumpArm(side, raiseAngle) {
-    const proportions = BMO_PROPORTIONS;
-    const outwardOffset = 0.5;
-    const reach = proportions.armLength * 0.95;
-    const planarReach = Math.sqrt(
-      Math.max(reach * reach - outwardOffset * outwardOffset, 0),
-    );
-
-    return {
-      l: [
-        side * (proportions.shoulderWidth + outwardOffset),
-        proportions.shoulderHeight - Math.cos(raiseAngle) * planarReach,
-        Math.sin(raiseAngle) * planarReach,
-      ],
-      pole: [side * 0.3, -0.1, -0.9],
-    };
-  }
-
-  // Membuat target lengan menari lewat arah bola: sudut ke samping dan sudut angkat dari bahu
+  // Membuat sudut rotasi bahu dan siku untuk gerakan tangan dance.
   function createDanceArm(side, elevationAngle, outwardAngle) {
-    const proportions = BMO_PROPORTIONS;
-    const reach = proportions.armLength * 0.95;
-    const direction = [
-      side * Math.sin(outwardAngle) * Math.cos(elevationAngle),
-      Math.sin(elevationAngle),
-      Math.cos(outwardAngle) * Math.cos(elevationAngle),
-    ];
-
     return {
-      l: [
-        side * proportions.shoulderWidth + direction[0] * reach,
-        proportions.shoulderHeight + direction[1] * reach,
-        direction[2] * reach,
-      ],
-      pole: [side * 0.3, -0.5, -0.6],
+      raise: Math.PI / 2 + elevationAngle,
+      outward: -side * outwardAngle * 0.35,
+      elbow: -0.24,
     };
   }
 
-  // Membuat target lengan untuk jalan atau lari berdasarkan sinyal ayunan -1 sampai 1
+  // Sudut rotasi lokal bahu dan siku untuk jalan atau lari.
   function createLocomotionArm(side, swingSignal, isRunning) {
-    const proportions = BMO_PROPORTIONS;
-    const shoulderHeight = proportions.shoulderHeight;
-    const shoulderWidth = proportions.shoulderWidth;
-    const armLength = proportions.armLength;
-
-    if (isRunning) {
-      return {
-        l: [
-          side * (shoulderWidth - 0.4),
-          shoulderHeight - 0.58 * armLength + 0.22 * armLength * swingSignal,
-          (0.1 + 0.5 * swingSignal) * armLength,
-        ],
-        pole: [side * 0.35, -0.2, -1.0],
-      };
-    }
-
-    const swingAngle = swingSignal * 0.45;
-    const outwardOffset = 0.5;
-    const reach = armLength * (0.95 - 0.05 * Math.max(0, swingSignal));
-    const planarReach = Math.sqrt(
-      Math.max(reach * reach - outwardOffset * outwardOffset, 0),
-    );
-
     return {
-      l: [
-        side * (shoulderWidth + outwardOffset),
-        shoulderHeight - Math.cos(swingAngle) * planarReach,
-        Math.sin(swingAngle) * planarReach,
-      ],
-      pole: [side * 0.3, -0.1, -0.9],
+      // Minus sign makes a downward local -Y arm swing in the same Z direction.
+      swing: swingSignal * (isRunning ? 0.72 : 0.45),
+      // Siku negatif menekuk forearm ke depan (+Z), searah saat jalan dan lari.
+      // Lari sedikit lebih menekuk daripada jalan.
+      elbow: isRunning ? -0.42 - Math.max(0, swingSignal) * 0.08 : -0.3,
     };
   }
 
-  // Membuat pose diam: napas, goyang pelan, lengan menggantung, sesekali tersenyum
-  function createIdlePose(
-    elapsedTimeSeconds,
-    basePosition,
-    baseYaw,
-    effectiveScale,
-  ) {
-    const breath = Math.sin(elapsedTimeSeconds * Math.PI * 2 * 0.35);
-    const weightShift = Math.sin(elapsedTimeSeconds * Math.PI * 2 * 0.12);
-
-    const leftArmSwing =
-      Math.sin(elapsedTimeSeconds * Math.PI * 2 * 0.35 - 0.8) * 0.15;
-    const rightArmSwing =
-      Math.sin(elapsedTimeSeconds * Math.PI * 2 * 0.35 - 1.2) * 0.15;
-
+  // Pose netral statis, tanpa animasi idle.
+  function createNeutralPose(basePosition, baseYaw, effectiveScale) {
     return {
       placeMat: createBodyPlacement(
         basePosition,
-        breath * 0.006,
+        0,
         baseYaw,
-        0.01 + breath * 0.006,
+        0,
         effectiveScale,
-        weightShift * 0.03,
       ),
       scale: effectiveScale,
-      loco: "idle",
+      loco: "neutral",
       isRun: false,
-      expr: elapsedTimeSeconds % 7 < 1.2 ? 1 : 0,
-      lr: weightShift * 0.03,
-      ll: -weightShift * 0.03,
-      kr: 0.04 + Math.max(0, weightShift) * 0.04,
-      kl: 0.04 + Math.max(0, -weightShift) * 0.04,
-      armL: createHangingArm(-1, leftArmSwing, 0.3),
-      armR: createHangingArm(1, rightArmSwing, 0.3),
+      expr: 0,
+      lr: 0,
+      ll: 0,
+      kr: 0,
+      kl: 0,
+      armL: { swing: 0, elbow: 0 },
+      armR: { swing: 0, elbow: 0 },
     };
   }
 
@@ -333,8 +254,8 @@
       ll: -legSwing,
       kr: kneeBend + 0.03,
       kl: kneeBend,
-      armL: createJumpArm(-1, armAngle + 0.08),
-      armR: createJumpArm(1, armAngle - 0.08),
+      armL: createJumpArm(armAngle + 0.08),
+      armR: createJumpArm(armAngle - 0.08),
     };
   }
 
@@ -464,7 +385,7 @@
       ),
       scale: effectiveScale,
       expr: isRunning ? 1 : 0,
-      loco: isRunning ? "run" : animationMode === "walk" ? "walk" : "idle",
+      loco: isRunning ? "run" : "walk",
       isRun: isRunning,
       lr: rightLegSwing,
       ll: leftLegSwing,
@@ -475,7 +396,7 @@
     };
   }
 
-  // Menghasilkan pose BMO untuk mode idle, jump, dance, walk, atau run
+  // Menghasilkan pose BMO untuk mode neutral, jump, dance, walk, atau run.
   function getBmoPose(
     animationMode,
     elapsedTimeSeconds,
@@ -485,13 +406,8 @@
   ) {
     const effectiveScale = baseScale || BMO_PROPORTIONS.defaultScale;
 
-    if (animationMode === "idle") {
-      return createIdlePose(
-        elapsedTimeSeconds,
-        basePosition,
-        baseYaw,
-        effectiveScale,
-      );
+    if (animationMode === "neutral") {
+      return createNeutralPose(basePosition, baseYaw, effectiveScale);
     }
     if (animationMode === "jump") {
       return createJumpPose(
@@ -509,13 +425,16 @@
         effectiveScale,
       );
     }
-    return createLocomotionPose(
-      animationMode,
-      elapsedTimeSeconds,
-      basePosition,
-      baseYaw,
-      effectiveScale,
-    );
+    if (animationMode === "walk" || animationMode === "run") {
+      return createLocomotionPose(
+        animationMode,
+        elapsedTimeSeconds,
+        basePosition,
+        baseYaw,
+        effectiveScale,
+      );
+    }
+    return createNeutralPose(basePosition, baseYaw, effectiveScale);
   }
 
   App.animations.getBmoPose = getBmoPose;

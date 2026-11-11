@@ -4,10 +4,9 @@
   const App = (window.App = window.App || {});
   App.actors = App.actors || {};
 
-  const { Mat4, V3, T: translate, S: scale, mul: multiply } = App.math;
+  const { Mat4, T: translate, S: scale, mul: multiply } = App.math;
   const { MeshCache } = App.gfx;
   const { quadrics } = App.geom;
-  const { solveTwoBoneIK, orientLimb } = App.anim;
 
   const rotateX = Mat4.rotationX;
   const rotateY = Mat4.rotationY;
@@ -724,68 +723,35 @@
         addPart(parts.sideText, multiply(placement, sideTextTransform));
       });
 
-      let placementInverse = null;
-
-      // Lengan dan tangan (IK two-bone analytical)
+      // Lengan dirakit dengan rotasi bahu dan siku, tanpa IK.
       BOTH_SIDES.forEach((side, sideIndex) => {
-        const shoulderPosition = [
-          side * ARM.shoulderX,
-          ARM.shoulderY,
-          0,
-        ];
-        const armTarget = pose[side === RIGHT ? "armR" : "armL"];
-
-        let handTarget;
-        if (armTarget && armTarget.w) {
-          placementInverse = placementInverse || Mat4.invert(placement);
-          handTarget = Mat4.point(placementInverse, armTarget.w);
-        } else if (armTarget && armTarget.l) {
-          handTarget = armTarget.l;
-        } else {
-          handTarget = [shoulderPosition[0] + side * (ARM.upperLength + ARM.forearmLength), shoulderPosition[1], 0];
-        }
-
-        const elbowPole = (armTarget && armTarget.pole) || [side * 0.35, -0.2, -1.0];
-        const arm = solveTwoBoneIK(
-          shoulderPosition,
-          handTarget,
-          elbowPole,
-          ARM.upperLength,
-          ARM.forearmLength,
-        );
-
-        const upperArmFrame = multiply(
+        const armTarget = pose[side === RIGHT ? "armR" : "armL"] || {};
+        const shoulderAngle = armTarget.raise ?? armTarget.swing ?? 0;
+        const shoulderFrame = multiply(
           placement,
-          orientLimb(shoulderPosition, V3.sub(arm.E, shoulderPosition)),
+          multiply(
+            LOCAL_TRANSFORMS.shoulderSocket[sideIndex],
+            multiply(
+              rotateZ(armTarget.outward || 0),
+              rotateX(-shoulderAngle),
+            ),
+          ),
         );
         const forearmFrame = multiply(
-          placement,
-          orientLimb(arm.E, V3.sub(arm.H, arm.E)),
+          shoulderFrame,
+          multiply(
+            translate(0, -ARM.upperLength, 0),
+            rotateX(armTarget.elbow || 0),
+          ),
         );
 
-        addPart(
-          parts.shoulderJoint,
-          multiply(placement, LOCAL_TRANSFORMS.shoulderSocket[sideIndex]),
-        );
-        addPart(
-          parts.upperArm,
-          multiply(upperArmFrame, LOCAL_TRANSFORMS.upperArm),
-        );
-        addPart(
-          parts.elbowJoint,
-          forearmFrame,
-        );
-        addPart(
-          parts.forearm,
-          multiply(forearmFrame, LOCAL_TRANSFORMS.forearm),
-        );
-
-        // Tangan berartikulasi seperti Jake
+        addPart(parts.shoulderJoint, shoulderFrame);
+        addPart(parts.upperArm, multiply(shoulderFrame, LOCAL_TRANSFORMS.upperArm));
+        addPart(parts.elbowJoint, forearmFrame);
+        addPart(parts.forearm, multiply(forearmFrame, LOCAL_TRANSFORMS.forearm));
         const handFrame = multiply(forearmFrame, LOCAL_TRANSFORMS.hand[sideIndex]);
         const scaledHandFrame = multiply(handFrame, LOCAL_TRANSFORMS.handScale);
-
         addPart(parts.palm, scaledHandFrame);
-
         LOCAL_TRANSFORMS.fingerBase.forEach((fingerBase, fingerIndex) => {
           addPart(
             parts.finger,
@@ -795,51 +761,37 @@
             ),
           );
         });
-
-        addPart(
-          parts.thumb,
-          multiply(scaledHandFrame, LOCAL_TRANSFORMS.thumb[sideIndex]),
-        );
+        addPart(parts.thumb, multiply(scaledHandFrame, LOCAL_TRANSFORMS.thumb[sideIndex]));
       });
 
-      // Kaki dengan sendi lutut IK two-bone
+      // Kaki dirakit dengan rotasi panggul dan lutut, tanpa IK.
       BOTH_SIDES.forEach((side, sideIndex) => {
         const sideKey = side === RIGHT ? "R" : "L";
-        const legSwing = pose.lr !== undefined ? (side === RIGHT ? pose.lr || 0 : pose.ll || 0) : (poseData["leg" + sideKey] || 0);
-        const kneeBend = Math.max(0, pose.kr !== undefined ? (side === RIGHT ? pose.kr || 0 : pose.kl || 0) : (poseData["knee" + sideKey] || 0));
-
-        const hipSocketPos = [side * LEG.hipX, LEG.hipY, 0];
-        const effectiveLen = LEG.thighLength + LEG.shinLength;
-        const ankleTarget = [
-          hipSocketPos[0],
-          hipSocketPos[1] - Math.cos(legSwing) * effectiveLen,
-          Math.sin(legSwing) * effectiveLen - Math.sin(kneeBend) * LEG.shinLength * 0.5,
-        ];
-
-        const kneePole = [0, 0, 1];
-        const legIK = solveTwoBoneIK(
-          hipSocketPos,
-          ankleTarget,
-          kneePole,
-          LEG.thighLength,
-          LEG.shinLength,
+        const legSwing = pose.lr !== undefined
+          ? (side === RIGHT ? pose.lr || 0 : pose.ll || 0)
+          : (poseData["leg" + sideKey] || 0);
+        const kneeBend = Math.max(
+          0,
+          pose.kr !== undefined
+            ? (side === RIGHT ? pose.kr || 0 : pose.kl || 0)
+            : (poseData["knee" + sideKey] || 0),
         );
-
-        const thighFrame = multiply(
+        const hipFrame = multiply(
           placement,
-          orientLimb(hipSocketPos, V3.sub(legIK.E, hipSocketPos)),
+          multiply(LOCAL_TRANSFORMS.hipSocket[sideIndex], rotateX(-legSwing)),
         );
-        const shinFrame = multiply(
-          placement,
-          orientLimb(legIK.E, V3.sub(legIK.H, legIK.E)),
+        const kneeFrame = multiply(
+          hipFrame,
+          multiply(
+            translate(0, -LEG.thighLength, 0),
+            rotateX(-kneeBend),
+          ),
         );
 
-        addPart(parts.thigh, multiply(thighFrame, LOCAL_TRANSFORMS.thigh));
-        addPart(parts.kneeJoint, shinFrame);
-        addPart(parts.shin, multiply(shinFrame, LOCAL_TRANSFORMS.shin));
-
-        // Telapak kaki di ujung betis
-        const ankleFrame = multiply(shinFrame, LOCAL_TRANSFORMS.ankle);
+        addPart(parts.thigh, multiply(hipFrame, LOCAL_TRANSFORMS.thigh));
+        addPart(parts.kneeJoint, kneeFrame);
+        addPart(parts.shin, multiply(kneeFrame, LOCAL_TRANSFORMS.shin));
+        const ankleFrame = multiply(kneeFrame, LOCAL_TRANSFORMS.ankle);
         addPart(
           parts.foot,
           multiply(

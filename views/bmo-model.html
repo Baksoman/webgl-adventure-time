@@ -176,7 +176,6 @@
     <!-- Animation Mode Controls -->
     <div class="ui-group">
       <span class="ui-label">Gerak:</span>
-      <button id="btnAnimIdle" class="active" onclick="setAnimationMode('idle')">Diam</button>
       <button id="btnAnimWalk" onclick="setAnimationMode('walk')">Jalan</button>
       <button id="btnAnimRun" onclick="setAnimationMode('run')">Lari</button>
       <button id="btnAnimJump" onclick="setAnimationMode('jump')">Lompat</button>
@@ -210,8 +209,6 @@
 <script src="../js/gfx/mesh-cache.js"></script>
 
 <!-- Kinematics -->
-<script src="../js/anim/inverse-kinematics.js"></script>
-
 <!-- BMO Character Model -->
 <script src="../js/models/bmo.js"></script>
 
@@ -231,7 +228,7 @@
   let autoRotate = false;
 
   // Animation State
-  let currentAnimationMode = 'idle';
+  let currentAnimationMode = 'neutral';
   let animationTimeSeconds = 0;
 
   window.setAnimationMode = function(mode) {
@@ -240,7 +237,7 @@
     if (mode === 'jump') {
       animationTimeSeconds = 0;
     }
-    ['idle', 'walk', 'run', 'jump'].forEach((animName) => {
+    ['walk', 'run', 'jump'].forEach((animName) => {
       const buttonId = 'btnAnim' + animName.charAt(0).toUpperCase() + animName.slice(1);
       const buttonElement = document.getElementById(buttonId);
       if (buttonElement) {
